@@ -1,0 +1,1671 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <!-- Hero Section -->
+  <div class="text-center mb-12">
+    <h2 class="text-4xl md:text-5xl font-bold text-black mb-4">
+      Zapcom Reels to Review-Video Analytics
+    </h2>
+    <p class="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+      Upload one or more videos and get instant transcription with automatic language detection and English translation
+    </p>
+  </div>
+
+  <!-- Hotel Reels Search -->
+<div class="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8 shadow-2xl mb-10" id="hotel-reels-search-card">
+  <h3 class="text-2xl font-semibold text-white mb-4">Hotel Reels Search</h3>
+  <p class="text-sm text-gray-300 mb-6">
+    Find recent Instagram reels mentioning your hotel, download clips, and push them through transcription.
+  </p>
+
+  <div class="relative">
+    <div class="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
+      <input
+        type="text"
+        id="hotelSearchInput"
+        placeholder="Search Instagram Reels for a hotel..."
+        class="flex-1 px-4 py-3 rounded-xl
+               bg-white/10 border border-white/20
+               text-black placeholder:text-gray-600
+               focus:bg-white focus:border-gray-300
+               focus:ring-2 focus:ring-purple-500 focus:outline-none
+               transition-colors duration-200"/>
+
+      <!-- Auto-run toggle (unchanged) -->
+      <label class="flex items-center gap-2 text-white/90 text-sm select-none">
+        <input id="autoRunToggle"
+               type="checkbox"
+               class="h-4 w-4 rounded border-white/40 bg-white/10 text-purple-600 focus:ring-purple-500 focus:outline-none" />
+        <span>Auto download &amp; transcribe</span>
+      </label>
+
+      <!-- NEW: Filters toggle -->
+      <button type="button"
+              id="filterToggle"
+              class="px-3 py-2 rounded-xl border border-white/30 text-white/90 hover:bg-white/10"
+              onclick="document.getElementById('filterPanel').classList.toggle('hidden')">
+        <span class="inline-flex items-center gap-2">
+          <!-- simple icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18v2H3V5zm4 6h10v2H7v-2zm3 6h4v2h-4v-2z"/></svg>
+          Filters
+        </span>
+      </button>
+
+      <button type="button"
+              class="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold shadow-lg transition-transform duration-200 transform hover:scale-105"
+              onclick="startSearch(event)">
+        Search
+      </button>
+    </div>
+
+    <!-- NEW: Filters panel -->
+    <div id="filterPanel"
+         class="mt-3 w-full md:w-auto bg-white/10 border border-white/20 rounded-xl p-4 hidden">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-white/90">
+        <label class="flex flex-col">
+          <span class="mb-1">Platform</span>
+          <select id="platformFilter" class="rounded-lg bg-white/10 border border-white/20 px-3 py-2">
+            <option value="instagram" selected>Instagram</option>
+            <option value="youtube">YouTube</option>
+            <option value="all">All</option>
+          </select>
+        </label>
+        <label class="flex flex-col">
+          <span class="mb-1">Date</span>
+          <select id="dateFilter" class="rounded-lg bg-white/10 border border-white/20 px-3 py-2">
+            <option value="7">Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30" selected>Last 1 month</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <p id="hotelSearchStatus" class="mt-4 text-sm text-gray-300"></p>
+  <div id="hotelSearchItems" class="mt-6 space-y-4"></div>
+</div>
+
+<!-- Overall report (rendered when we have results) -->
+<div id="overallReportCard" class="mt-10 hidden"></div>
+
+
+  <!-- Upload Section -->
+  <div class="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8 shadow-2xl">
+    <form action="/upload" method="post" enctype="multipart/form-data"
+          x-data="uploadForm()" @submit="handleSubmit" class="space-y-6">
+
+      <!-- File Upload Area -->
+      <div class="relative">
+        <input type="file" name="video" id="video" accept="video/*" multiple required
+               @change="handleFileSelect"
+               class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+
+        <div class="border-2 border-dashed border-purple-400/50 rounded-xl p-12 text-center hover:border-purple-400 transition-colors duration-300"
+             :class="{'border-purple-400 bg-purple-500/10': dragOver}"
+             @dragover.prevent="dragOver = true"
+             @dragleave.prevent="dragOver = false"
+             @drop.prevent="handleDrop">
+
+          <div class="space-y-4">
+            <div class="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto">
+              <i class="fas fa-cloud-upload-alt text-white text-2xl"></i>
+            </div>
+
+            <div>
+              <h3 class="text-xl font-semibold text-white mb-2">
+                <span x-show="selectedFiles.length === 0">Choose video files or drag & drop (multiple supported)</span>
+                <span x-show="selectedFiles.length > 0" x-text="selectedFilesLabel()" class="text-purple-300"></span>
+              </h3>
+              <p class="text-gray-400 text-sm">
+                <span x-show="selectedFiles.length === 0">Supports MP4, AVI, MOV, MKV, WMV, FLV, WebM (Max: 100MB per file)</span>
+                <span x-show="selectedFiles.length > 0" x-text="selectedFilesMeta()" class="text-green-400"></span>
+              </p>
+            </div>
+
+            <template x-if="selectedFiles.length > 0">
+              <div class="pt-4 space-y-2 max-h-40 overflow-y-auto text-left">
+                <template x-for="file in selectedFiles" :key="file.name + file.lastModified">
+                  <div class="flex items-center justify-between text-sm bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                    <span class="text-gray-200 truncate" x-text="file.name"></span>
+                    <span class="text-purple-300 ml-3 whitespace-nowrap" x-text="formatFileSize(file.size)"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Button -->
+      <div class="flex justify-center">
+        <button type="submit"
+          :disabled="selectedFiles.length === 0 || uploading"
+          class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed shadow-lg">
+          <span x-show="!uploading" class="flex items-center space-x-2">
+            <i class="fas fa-magic"></i>
+            <span x-text="submitButtonLabel()"></span>
+          </span>
+          <span x-show="uploading" class="flex items-center space-x-2">
+            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Processing...</span>
+          </span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Features Section -->
+  <div class="mt-16 grid md:grid-cols-3 gap-8">
+    <div class="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+      <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center mb-4">
+        <i class="fas fa-language text-white text-xl"></i>
+      </div>
+      <h3 class="text-lg font-semibold text-black mb-2">Auto Language Detection</h3>
+      <p class="text-gray-400 text-sm">Automatically detects the spoken language in your videos</p>
+    </div>
+
+    <div class="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+      <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mb-4">
+        <i class="fas fa-globe text-white text-xl"></i>
+      </div>
+      <h3 class="text-lg font-semibold text-white mb-2">English Translation</h3>
+      <p class="text-gray-400 text-sm">Translates speech to English for universal understanding</p>
+    </div>
+
+    <div class="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+      <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mb-4">
+        <i class="fas fa-bolt text-white text-xl"></i>
+      </div>
+      <h3 class="text-lg font-semibold text-white mb-2">Fast Processing</h3>
+      <p class="text-gray-400 text-sm">Quick audio extraction and AI-powered transcription</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= Upload form (unchanged) ================= */
+function uploadForm() {
+  return {
+    selectedFiles: [],
+    uploading: false,
+    dragOver: false,
+    handleFileSelect(e) { this.selectedFiles = Array.from(e.target.files || []); },
+    handleDrop(e) {
+      this.dragOver = false;
+      const files = e.dataTransfer?.files;
+      if (files?.length) {
+        this.selectedFiles = Array.from(files);
+        document.getElementById('video').files = files;
+      }
+    },
+    handleSubmit(e) {
+      if (!this.selectedFiles.length) { e.preventDefault(); return; }
+      this.uploading = true;
+    },
+    selectedFilesLabel() {
+      if (!this.selectedFiles.length) return '';
+      return this.selectedFiles.length === 1
+        ? this.selectedFiles[0].name
+        : `${this.selectedFiles[0].name} + ${this.selectedFiles.length - 1} more`;
+    },
+    selectedFilesMeta() {
+      if (!this.selectedFiles.length) return '';
+      if (this.selectedFiles.length === 1) return this.formatFileSize(this.selectedFiles[0].size);
+      return `${this.selectedFiles.length} files - ${this.formatFileSize(this.totalSizeBytes())}`;
+    },
+    submitButtonLabel() {
+      if (!this.selectedFiles.length) return 'Transcribe Video';
+      return this.selectedFiles.length === 1 ? 'Transcribe 1 Video' : `Transcribe ${this.selectedFiles.length} Videos`;
+    },
+    totalSizeBytes() { return this.selectedFiles.reduce((s,f) => s + (f.size||0), 0); },
+    formatFileSize(bytes) {
+      if (!bytes) return '0 Bytes';
+      const sizes = ['Bytes','KB','MB','GB'];
+      const i = Math.min(Math.floor(Math.log(bytes)/Math.log(1024)), sizes.length-1);
+      const v = bytes / Math.pow(1024,i);
+      return `${Math.round(v*100)/100} ${sizes[i]}`;
+    }
+  }
+}
+
+/* ================= Hotel reels search ================= */
+const hotelReelState = {
+  jobId: null,
+  hotel: '',
+  timer: null,
+  auto: false,
+  // tiny automation queue
+  q: [],
+  running: false
+};
+
+function queueClear() {
+  hotelReelState.q = [];
+  hotelReelState.running = false;
+}
+
+async function queueRun() {
+  if (hotelReelState.running) return;
+  hotelReelState.running = true;
+
+  while (hotelReelState.q.length) {
+    const job = hotelReelState.q.shift();
+    try { await job(); } catch (e) { /* swallow so others run */ }
+  }
+  hotelReelState.running = false;
+}
+
+// local cache so we can update cards instantly after Transcribe
+window._items = [];
+
+function clearHotelPoll() {
+  if (hotelReelState.timer) { clearTimeout(hotelReelState.timer); hotelReelState.timer = null; }
+}
+
+function setHotelStatus(message, type='info') {
+  const el = document.getElementById('hotelSearchStatus'); if (!el) return;
+  el.textContent = message || '';
+  const classes = ['text-gray-300','text-green-400','text-red-400','text-yellow-300'];
+  el.classList.remove(...classes);
+  const map = { success:'text-green-400', error:'text-red-400', warning:'text-yellow-300', info:'text-gray-300' };
+  el.classList.add(map[type] || map.info);
+}
+
+function escapeHtml(v) {
+  return String(v ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+async function startSearch(event) {
+  if (event) event.preventDefault();
+
+  const input     = document.getElementById('hotelSearchInput');
+  const resultsEl = document.getElementById('hotelSearchItems');
+  const toggle    = document.getElementById('autoRunToggle'); // checkbox next to Search
+  if (!input || !resultsEl) return;
+
+  const hotel = (input.value || '').trim();
+  if (!hotel) {
+    setHotelStatus('Please enter a hotel name to search.', 'error');
+    return;
+  }
+
+  // NEW: read filters (with safe fallbacks)
+  const platformEl = document.getElementById('platformFilter');
+  const dateEl     = document.getElementById('dateFilter');
+  const platform   = ((platformEl && platformEl.value) || 'instagram').toLowerCase(); // instagram | youtube | all
+  const date_range = (dateEl && dateEl.value) ? String(dateEl.value) : '30';          // '7' | '14' | '30'
+
+  // Optional: close the filter panel if it’s open
+  try { document.getElementById('filterPanel')?.classList.add('hidden'); } catch (_) {}
+
+  // Reset UI + state for a fresh run
+  hotelReelState.hotel = hotel;
+  hotelReelState.jobId = null;
+  resultsEl.innerHTML  = '';
+  clearHotelPoll();
+
+  // 🔄 Reset the “overall report” so it can render again after this search
+  window._overallReportRendered = false;
+  const overallCard = document.getElementById('overallReportCard');
+  if (overallCard) overallCard.classList.add('hidden');
+
+  // Ensure the auto-run controller exists and is clean
+  if (!window.autoRun || typeof window.autoRun !== 'object') {
+    window.autoRun = { enabled: false, running: false, queue: [], processing: new Set() };
+  }
+  autoRun.enabled = !!(toggle && toggle.checked);
+  autoRun.running = false;
+  autoRun.queue   = [];               // clear any leftovers from a previous search
+  if (autoRun.processing?.clear) autoRun.processing.clear();
+
+  // Smarter status text based on platform
+  const platformNice =
+    platform === 'all' ? 'Instagram & YouTube' :
+    platform.charAt(0).toUpperCase() + platform.slice(1);
+  setHotelStatus(`Searching ${platformNice}…`, 'info');
+
+  try {
+    const response = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // NEW: send filters to backend
+      body: JSON.stringify({ hotel, platform, date_range })
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setHotelStatus(data.error || 'Search request failed.', 'error');
+      return;
+    }
+    if (!data.job_id) {
+      setHotelStatus('Search completed but no reels were returned.', 'warning');
+      return;
+    }
+
+    hotelReelState.jobId = data.job_id;
+    setHotelStatus('Search started. Loading results…', 'info');
+
+    // begin polling the job
+    pollStatus(data.job_id, hotel, true);
+
+    // if auto mode was ON at search time, kick the worker
+    if (autoRun.enabled) {
+      try { kickAuto(hotelReelState.jobId); } catch (_) {}
+    }
+  } catch (error) {
+    setHotelStatus(`Search failed: ${error}`, 'error');
+  }
+}
+
+
+function copyTranscript(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const txt = el.textContent || '';
+  navigator.clipboard.writeText(txt).catch(() => {});
+}
+
+
+
+async function pollStatus(jobId, hotel, auto = false) {
+  if (!jobId) return;
+
+  clearHotelPoll();
+
+  try {
+    const res = await fetch(`/api/status?job_id=${encodeURIComponent(jobId)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setHotelStatus(data.error || 'Unable to fetch search status.', 'error');
+      return;
+    }
+
+    // keep local state in sync
+    hotelReelState.jobId  = data.job_id || jobId;
+    hotelReelState.hotel  = hotel || data.hotel || hotelReelState.hotel;
+
+    const items = Array.isArray(data.items) ? data.items : [];
+    renderItems(items, hotelReelState.jobId, hotelReelState.hotel);
+
+    // ─────────────────────────────────────────────────────────────
+    // ONLY ENQUEUE ONE TASK PER ITEM PER POLL (no duplicates)
+    // ─────────────────────────────────────────────────────────────
+    if (autoRun.enabled && hotelReelState.jobId) {
+      const alreadyInQueue = (key) =>
+        autoRun.queue.some(t => t.key === key) || autoRun.processing.has(key);
+
+      for (const it of items) {
+        const rid = it.reel_id || it.id || '';
+        const baseKey = rid || it.url || '';
+        if (!baseKey) continue;
+
+        // 1) Need to download?
+        if (!it.downloaded && it.url) {
+          const dlKey = `dl:${baseKey}`;
+          if (!alreadyInQueue(dlKey)) {
+            autoRun.queue.push({
+              key: dlKey,
+              kind: 'download',
+              jobId: hotelReelState.jobId,
+              hotel: hotelReelState.hotel,
+              reelId: rid,
+              url: it.url,
+            });
+          }
+        }
+
+        // 2) Downloaded but not transcribed yet?
+        if (it.downloaded && !it.transcribed && it.filepath) {
+          const tsKey = `ts:${baseKey}`;
+          if (!alreadyInQueue(tsKey)) {
+            autoRun.queue.push({
+              key: tsKey,
+              kind: 'transcribe',
+              jobId: hotelReelState.jobId,
+              reelId: rid,
+              filepath: it.filepath,
+            });
+          }
+        }
+      }
+
+      // Nudge the worker if there is something to do
+      if (autoRun.queue.length) {
+        kickAuto(hotelReelState.jobId);
+      }
+    }
+    // ─────────────────────────────────────────────────────────────
+
+    // Status line
+    const found = data.found_count ?? items.length;
+    const downloaded = data.downloaded_count ?? items.filter(i => i.downloaded).length;
+    setHotelStatus(`Found ${found} reels · ${downloaded} downloaded`, found ? 'info' : 'warning');
+
+    // Keep polling while there’s unfinished work
+    const pending = items.some(i => !i.downloaded || !i.transcribed);
+    if ((auto || pending) && pending) {
+      hotelReelState.timer = setTimeout(() => {
+        pollStatus(hotelReelState.jobId, hotelReelState.hotel, true);
+      }, 5000);
+    }
+
+    // 🔹 Render the overall report once the queue finishes (success or fail)
+    renderOverallReport(items);
+
+
+    // 🔹 Final, idempotent nudge (in case the worker is idle)
+    if (autoRun.enabled && hotelReelState.jobId && !autoRun.processing.size && autoRun.queue.length) {
+      kickAuto(hotelReelState.jobId);
+    }
+
+  } catch (err) {
+    setHotelStatus(`Status check failed: ${err}`, 'error');
+  }
+}
+
+
+
+
+
+/* ===== transcript+analysis block for each card ===== */
+function renderTranscriptBlock(item) {
+  if (!item.transcribed) return '';
+  const a = item.analysis || {};
+  const conf = (typeof a.confidence === 'number')
+    ? (a.confidence <= 1 ? Math.round(a.confidence * 100) : Math.round(a.confidence))
+    : null;
+
+  const list = arr => (arr || []).map(x => `<li class="mb-1">${escapeHtml(x)}</li>`).join('');
+  const emotions = (a.emotions || []).slice(0, 8).map(e => {
+    const pct = (typeof e.score === 'number') ? (e.score <= 1 ? Math.round(e.score*100) : Math.round(e.score)) : null;
+    return `<span class="inline-block px-2 py-1 rounded-lg bg-white/10 text-white text-xs mr-1 mb-1">
+              ${escapeHtml(e.label)}${pct !== null ? ` ${pct}%` : ''}
+            </span>`;
+  }).join('');
+
+  return `
+    <div class="mt-4 rounded-xl bg-white/5 border border-white/10 p-4">
+      <details open>
+        <summary class="cursor-pointer text-white font-medium">Transcript & analysis</summary>
+
+        <p class="mt-3 text-white/90 whitespace-pre-wrap break-words">
+          ${escapeHtml(item.transcript || '(no text)')}
+        </p>
+
+        ${item.analysis ? `
+          <div class="mt-4 grid md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <div class="text-gray-300">Overall sentiment</div>
+              <div class="mt-1 font-semibold text-white">
+                ${escapeHtml(a.overall_sentiment || '—')}
+                ${conf !== null ? `<span class="text-gray-300 font-normal">(${conf}% confidence)</span>` : ''}
+              </div>
+              ${emotions ? `<div class="mt-2">${emotions}</div>` : ''}
+              ${a.summary ? `<div class="mt-3 text-gray-300">Summary</div><p class="text-white/90">${escapeHtml(a.summary)}</p>` : ''}
+            </div>
+            <div>
+              ${a.reasons?.length ? `<div class="text-gray-300">Reasons</div><ul class="list-disc pl-5 mt-1 text-white/90">${list(a.reasons)}</ul>` : ''}
+              ${a.strengths?.length ? `<div class="mt-3 text-gray-300">Strengths</div><ul class="list-disc pl-5 mt-1 text-white/90">${list(a.strengths)}</ul>` : ''}
+              ${a.weaknesses?.length ? `<div class="mt-3 text-gray-300">Weaknesses</div><ul class="list-disc pl-5 mt-1 text-white/90">${list(a.weaknesses)}</ul>` : ''}
+              ${a.suggestions?.length ? `<div class="mt-3 text-gray-300">Suggestions</div><ul class="list-disc pl-5 mt-1 text-white/90">${list(a.suggestions)}</ul>` : ''}
+            </div>
+          </div>` : ''}
+      </details>
+    </div>`;
+}
+
+
+/* ===== render all cards (UPDATED with horizontal word-cloud ribbon) ===== */
+function renderItems(items, jobId, hotel) {
+  const container = document.getElementById('hotelSearchItems');
+  if (!container) return;
+
+  // ── one-time CSS for pretty horizontal chips ─────────────────────────────
+  (function ensureWCStyles(){
+    if (document.getElementById('wc-styles')) return;
+    document.head.insertAdjacentHTML('beforeend', `
+      <style id="wc-styles">
+        .wc-ribbon{display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-start;
+                   max-height:120px;overflow-y:auto;padding:.25rem}
+        .wc-chip{display:inline-flex;align-items:center;white-space:nowrap;
+                 padding:.35rem .6rem;border-radius:9999px;
+                 border:1px solid rgba(99,102,241,.25);
+                 background:linear-gradient(135deg,rgba(139,92,246,.10),rgba(236,72,153,.10));
+                 font-weight:600;letter-spacing:.01em;line-height:1}
+      </style>
+    `);
+  })();
+
+  // ── horizontal word-cloud helper (chips; size/opacity by frequency) ─────
+  const STOPWORDS = new Set(['the','and','for','you','are','was','with','this','that','have','from','but','not','your','our','get','had','been','they','them','his','her','she','him','out','who','what','when','where','why','how','can','could','would','should','into','over','under','after','before','because','while','there','their','about','also','just','than','then','very','much','more','most','some','any','many','few','each','other','only','ever','never','again','one','two','three','four','five','six','seven','eight','nine','ten','on','in','at','by','to','of','is','am','be','as','an','or','if','so','do','does','did','were','will','shall','i','me','my','mine','we','us','our','ours','it','its']);
+  function renderWordCloud(containerId, text){
+    const el = document.getElementById(containerId); if(!el) return;
+    const words = (String(text||'').toLowerCase().match(/[a-zA-Z]{3,}/g) || [])
+      .filter(w => !STOPWORDS.has(w));
+    if (!words.length) { el.className='wc-ribbon'; el.innerHTML = '<p class="text-xs text-slate-400">No keywords</p>'; return; }
+    const freq = {};
+    for (const w of words) freq[w] = (freq[w]||0) + 1;
+    const entries = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,60);
+    const max = entries[0][1] || 1;
+    el.className = 'wc-ribbon';
+    el.innerHTML = entries.map(([w,c])=>{
+      const size = 12 + Math.round((c / max) * 8); // 12..20px
+      const op   = 0.55 + (c / max) * 0.45;        // 0.55..1
+      return `<span class="wc-chip" style="font-size:${size}px;opacity:${op}">${escapeHtml(w)}</span>`;
+    }).join('');
+  }
+
+  if (!Array.isArray(items) || !items.length) {
+    container.innerHTML = '<p class="text-sm text-gray-400">No Instagram reels found yet.</p>';
+    return;
+  }
+
+  container.innerHTML = items.map((it, idx) => {
+    const r = it || {};
+    const rid = r.reel_id || r.id || `item-${idx}`; // STABLE ID
+    const hasTranscript = !!(r.transcript && r.analysis);
+    const a = r.analysis || {};
+    const sentiment = (a.overall_sentiment || 'unknown');
+    const link = r.url ? `<a href="${escapeHtml(r.url)}" class="text-sm text-purple-400 hover:text-purple-300" target="_blank" rel="noopener">View on Instagram</a>` : '';
+    const status = [
+      r.downloaded ? 'Downloaded' : 'Not downloaded',
+      r.transcribed ? 'Transcribed' : 'Not transcribed'
+    ].join(' · ');
+    const errorLine = r.error ? `<p class="text-xs text-red-400 mt-2">${escapeHtml(r.error)}</p>` : '';
+    const fileLine  = r.filepath ? `<p class="text-xs text-gray-400 mt-2 break-all">File: ${escapeHtml(r.filepath)}</p>` : '';
+    const disableTranscribe = !(r.downloaded && r.filepath);
+
+    // === NORMALIZE emotions so bars sum to 100 and never exceed 100 ===
+    let rawEmos = Array.isArray(a.emotions) ? a.emotions : [];
+    let normalizedEmos = [];
+    if (rawEmos.length) {
+      const scores = rawEmos.map(e => {
+        let v = Number(e.score) || 0;
+        if (v <= 1) v *= 100;                // support 0..1 or already %
+        return { label: e.label || '', v: Math.max(0, v) };
+      });
+      const sum = scores.reduce((acc, x) => acc + x.v, 0);
+      normalizedEmos = sum > 0
+        ? scores.map(x => ({ label: x.label, score: (x.v / sum) * 100 }))
+        : scores.map(x => ({ label: x.label, score: 0 }));
+    }
+
+    // Transcript/Analytics panel (only when available)
+    const transcriptPanel = hasTranscript ? `
+      <div class="bg-white rounded-2xl border border-purple-100 shadow-xl overflow-hidden mt-4 transcript-section">
+        <div class="flex items-center justify-between px-6 py-3 bg-purple-50 border-b border-purple-100">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white"><i class="fas fa-file-alt"></i></div>
+            <div>
+              <p class="text-sm font-semibold text-purple-700">Transcribed Text</p>
+              <p class="text-xs text-purple-500">Auto-detected language, translated to English</p>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button class="px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-purple-600 text-sm" onclick="copyTranscript('tr-${rid}', this)"><i class="fas fa-copy mr-1"></i>Copy</button>
+            <button class="px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-purple-600 text-sm" onclick="downloadTranscriptInline('${rid}', ${JSON.stringify(r.original_filename || rid)})"><i class="fas fa-download mr-1"></i>Download</button>
+          </div>
+        </div>
+
+        <div class="px-6 py-5">
+          <div id="tr-${rid}" class="text-gray-900 text-base leading-7 whitespace-pre-wrap max-h-60 overflow-y-auto">${escapeHtml(r.transcript || '')}</div>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-4 px-6 pb-5">
+          <div class="bg-slate-50 rounded-2xl px-4 py-5 border border-slate-200 text-center analytics-section">
+            <p class="text-3xl font-black text-purple-600">${(r.transcript||'').split(/\s+/).filter(Boolean).length}</p>
+            <p class="text-xs uppercase tracking-wide text-gray-600 font-semibold">Words</p>
+          </div>
+          <div class="bg-slate-50 rounded-2xl px-4 py-5 border border-slate-200 text-center analytics-section">
+            <p class="text-3xl font-black text-green-600">${(r.transcript||'').length}</p>
+            <p class="text-xs uppercase tracking-wide text-gray-600 font-semibold">Characters</p>
+          </div>
+          <div class="bg-slate-50 rounded-2xl px-4 py-5 border border-slate-200 text-center analytics-section">
+            <p class="text-3xl font-black text-indigo-600"><i class="fas fa-robot"></i></p>
+            <p class="text-xs uppercase tracking-wide text-gray-600 font-semibold">AI Powered</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-purple-100 shadow-xl overflow-hidden mt-4 analytics-section">
+        <div class="px-6 py-3 bg-gradient-to-r from-emerald-50 via-blue-50 to-purple-50 border-b border-purple-100">
+          <p class="text-sm font-semibold text-slate-800">Sentiment Insights</p>
+          <div class="mt-1 inline-flex items-center px-2 py-0.5 rounded-lg border ${sentimentBadgeColor(sentiment)} text-xs font-semibold">
+            <i class="fas fa-face-smile mr-1"></i>${escapeHtml(sentiment)}
+          </div>
+        </div>
+
+        <div class="p-6 grid lg:grid-cols-3 gap-6">
+          <div class="space-y-6 analytics-section">
+            <div class="bg-white rounded-2xl p-4 border border-slate-200">
+              <div class="h-36"><canvas id="gauge-${rid}"></canvas></div>
+              <p class="text-xs text-center text-gray-600 mt-2">Higher means more positive overall</p>
+            </div>
+
+            ${a.summary ? `
+            <div class="bg-white rounded-2xl p-4 border border-slate-200">
+              <p class="text-xs uppercase text-gray-600 tracking-wide mb-2">Summary</p>
+              <p class="text-sm text-gray-800 leading-6">${escapeHtml(a.summary)}</p>
+            </div>`: '' }
+          </div>
+
+          <div class="space-y-6 analytics-section">
+            ${normalizedEmos.length ? `
+            <div class="bg-white rounded-2xl p-4 border border-slate-200"><div class="h-44">
+              <canvas id="emotions-${rid}"></canvas>
+            </div></div>` : ''}
+
+            <div id="bars-${rid}" class="space-y-3">
+              ${normalizedEmos.map(e => {
+                const sc = Math.min(100, Math.max(0, Number(e.score) || 0)); // already normalized
+                return `
+                  <div>
+                    <div class="flex justify-between text-xs font-semibold text-gray-700 mb-1">
+                      <span>${escapeHtml(e.label || '')}</span>
+                      <span>${sc.toFixed(1)}%</span>
+                    </div>
+                    <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div class="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500" style="width:${sc}%;"></div>
+                    </div>
+                  </div>`;
+              }).join('')}
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 analytics-section">
+              <p class="text-xs uppercase text-gray-600 tracking-wide mb-2">Reasons</p>
+              <ul class="space-y-2 text-sm text-gray-800">
+                ${(a.reasons||[]).map(t=>`<li class="flex gap-2"><span class="mt-1 w-2 h-2 rounded-full bg-purple-500"></span><span>${escapeHtml(t)}</span></li>`).join('')}
+              </ul>
+            </div>
+
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 analytics-section">
+              <p class="text-xs uppercase text-gray-600 tracking-wide mb-2">Strengths</p>
+              <ul class="space-y-2 text-sm text-gray-800">
+                ${(a.strengths||[]).map(t=>`<li class="flex gap-2"><span class="mt-1 w-2 h-2 rounded-full bg-green-500"></span><span>${escapeHtml(t)}</span></li>`).join('')}
+              </ul>
+            </div>
+
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 analytics-section">
+              <p class="text-xs uppercase text-gray-600 tracking-wide mb-2">Weaknesses</p>
+              <ul class="space-y-2 text-sm text-gray-800">
+                ${(a.weaknesses||[]).map(t=>`<li class="flex gap-2"><span class="mt-1 w-2 h-2 rounded-full bg-red-500"></span><span>${escapeHtml(t)}</span></li>`).join('')}
+              </ul>
+            </div>
+
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 analytics-section">
+              <p class="text-xs uppercase text-gray-600 tracking-wide mb-2">Suggestions</p>
+              <ul class="space-y-2 text-sm text-gray-800">
+                ${(a.suggestions||[]).map(t=>`<li class="flex gap-2"><span class="mt-1 w-2 h-2 rounded-full bg-blue-500"></span><span>${escapeHtml(t)}</span></li>`).join('')}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- NEW: Horizontal Word-Cloud ribbon INSIDE Sentiment Insights card -->
+        <div class="px-6 pb-6">
+          <div class="rounded-xl border border-slate-200 bg-gradient-to-r from-purple-50 via-pink-50 to-indigo-50 p-3">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-xs uppercase tracking-wide text-slate-600 font-semibold">Word Cloud</p>
+              <span class="text-[10px] text-slate-500">Top keywords across this transcript</span>
+            </div>
+            <div id="wc-${rid}"></div>
+          </div>
+        </div>
+      </div>
+    ` : '';
+
+    // Inline, no-global handlers for Collapse / Processed / Expand:
+    const collapseBtn = `
+      <div class="flex gap-2 mt-4">
+        <button class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white"
+          onclick="(function(r){const root=document.getElementById('card-'+r); if(!root)return;
+                   root.dataset.view='collapsed';
+                   root.querySelectorAll('.transcript-section,.analytics-section').forEach(el=>el.classList.add('hidden'));})('${rid}')">
+          Collapse
+        </button>
+        <button class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white"
+          onclick="(function(r){const root=document.getElementById('card-'+r); if(!root)return;
+                   root.dataset.view='processed';
+                   root.querySelectorAll('.transcript-section').forEach(el=>el.classList.add('hidden'));
+                   root.querySelectorAll('.analytics-section').forEach(el=>el.classList.remove('hidden'));})('${rid}')">
+          Processed
+        </button>
+        <button class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white"
+          onclick="(function(r){const root=document.getElementById('card-'+r); if(!root)return;
+                   root.dataset.view='expanded';
+                   root.querySelectorAll('.transcript-section,.analytics-section').forEach(el=>el.classList.remove('hidden'));})('${rid}')">
+          Expand
+        </button>
+      </div>`;
+
+    return `
+      <article id="card-${rid}" class="border border-white/10 rounded-2xl bg-white/5 p-4">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div>
+            <p class="text-sm font-semibold text-white">Reel ${escapeHtml(rid)}</p>
+            <p class="text-xs text-gray-400">${escapeHtml(status)}</p>
+          </div>
+          ${link}
+        </div>
+        ${fileLine}
+        ${errorLine}
+
+        ${collapseBtn}
+
+        ${transcriptPanel}
+
+        <div class="flex flex-wrap gap-3 mt-4">
+          <button type="button"
+                  class="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white transition-colors"
+                  onclick="forceDownload('${escapeHtml(r.url || '')}', '${escapeHtml(hotel || '')}', '${escapeHtml(jobId)}')">
+            Download video
+          </button>
+          <button type="button"
+                  class="${disableTranscribe ? 'px-4 py-2 rounded-lg bg-gray-600 text-white opacity-70 cursor-not-allowed' : 'px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white'}"
+                  ${disableTranscribe ? 'disabled' : ''}
+                  onclick="transcribeFile('${escapeHtml(r.filepath || '')}','${escapeHtml(rid)}','${escapeHtml(jobId)}')">
+            Transcribe
+          </button>
+        </div>
+      </article>`;
+  }).join('');
+
+  // spin up charts for all transcripts on the page (no animated bars call)
+  items.forEach((it, idx) => {
+    if (it && it.transcript && it.analysis) {
+      const rid = it.reel_id || it.id || `item-${idx}`;
+
+      // IMPORTANT: your chart helpers should set { animation: { duration: 0 } }
+      createSentimentGauge(`gauge-${rid}`, it.analysis.sentiment_score);
+
+      const emos = Array.isArray(it.analysis.emotions) ? it.analysis.emotions : [];
+      if (emos.length) {
+        // pass normalized data to the donut as well
+        const scores = emos.map(e => {
+          let v = Number(e.score) || 0;
+          if (v <= 1) v *= 100;
+          return { label: e.label || '', v: Math.max(0, v) };
+        });
+        const sum = scores.reduce((acc,x)=>acc+x.v,0) || 1;
+        const normalized = scores.map(x => ({ label: x.label, score: (x.v / sum) * 100 }));
+        createEmotionsDonut(`emotions-${rid}`, normalized);
+      }
+
+      // Render the new horizontal word-cloud ribbon
+      renderWordCloud(`wc-${rid}`, it.transcript);
+    }
+  });
+}
+
+
+
+
+/* ─────────────────────────────────────────────────────────────
+   OVERALL REPORT: renders the “Batch Processing Complete” card
+   ───────────────────────────────────────────────────────────── */
+
+const _overallReportState = { jobId: null, chart: null };
+
+function renderOverallReport(items) {
+  const host = document.getElementById('overallReportCard');
+  if (!host) return;
+
+  // Compute stats from the latest items list
+  const stats = summarizeItems(items);
+
+  // Show the card even if everything failed; hide only when empty
+  host.classList.remove('hidden');
+  host.innerHTML = buildReportHTML(stats);
+
+  // Build/update the donut (animation disabled inside your chart helper)
+  renderOverallDonut('overallEmotionChart', stats.emotionLabels, stats.emotionValues);
+
+  // Fill bucket lists (buttons that jump to video cards)
+  injectBucketLists(stats);
+
+  // Overall word cloud (from all transcripts) — render after DOM is painted
+  const cloudId = 'overallWordCloud';
+  const textBlob = Array.isArray(stats._texts) ? stats._texts.join(' ') : '';
+  requestAnimationFrame(() => {
+    const el = document.getElementById(cloudId);
+    if (!el) return;
+    if (textBlob.trim()) {
+      try { renderWordCloud(cloudId, textBlob); } catch {}
+    } else {
+      // graceful placeholder if no transcripts/words
+      el.className = (el.className || '') + ' wc-ribbon';
+      el.innerHTML = '<p class="text-xs text-slate-400">No keywords yet</p>';
+    }
+  });
+}
+
+/* Build numbers + placeholders — UPDATED (normalization + rid for linking) */
+function summarizeItems(items) {
+  const safe = Array.isArray(items) ? items : [];
+
+  const total     = safe.length;
+  const succeeded = safe.filter(it => it.transcribed && it.transcript).length;
+  const failed    = safe.filter(it =>
+                    it.error || (it.downloaded && !it.transcribed)
+                  ).length;
+
+  // group by sentiment (used for Session Sentiment Overview)
+  const buckets = { positive: [], negative: [], mixed: [], neutral: [], unknown: [] };
+
+  // overall emotion distribution (normalize per-item, then average)
+  const emotionTotals = Object.create(null);
+
+  // gather text for overall word cloud
+  const texts = [];
+
+  safe.forEach((it, idx) => {
+    const ana = it.analysis || {};
+    const s   = String(ana.overall_sentiment || '').toLowerCase();
+    const key = ['positive','negative','mixed','neutral'].includes(s) ? s : 'unknown';
+
+    // derive a “sentiment score” for bucket display
+    const score = deriveSentimentScore(ana);
+
+    // stable rid for linking to the card
+    const rid = it.reel_id || it.id || `item-${idx + 1}`;
+
+    buckets[key].push({
+      rid,                            // used by "scroll to card"
+      index: idx,
+      label: it.original_filename || it.reel_id || `Video ${idx + 1}`,
+      score
+    });
+
+    if (it && it.transcript) texts.push(it.transcript);
+
+    // === Per-item normalization for emotions ===
+    const emos = Array.isArray(ana.emotions) ? ana.emotions : [];
+    const vals = emos.map(e => {
+      let v = Number(e.score) || 0;
+      if (v <= 1) v *= 100;            // treat as fraction → %
+      return { label: e.label, v: Math.max(0, v) };
+    }).filter(x => Number.isFinite(x.v));
+
+    const sum = vals.reduce((acc, x) => acc + x.v, 0);
+
+    // Add normalized contribution of this item to running totals
+    if (sum > 0) {
+      vals.forEach(({ label, v }) => {
+        const nv = (v / sum) * 100;    // this item's distribution sums to 100
+        emotionTotals[label] = (emotionTotals[label] || 0) + nv;
+      });
+    }
+  });
+
+  // === Average across succeeded items so the donut sums to ~100 ===
+  const denom = Math.max(1, succeeded); // avoid divide-by-zero
+  const averaged = Object.fromEntries(
+    Object.entries(emotionTotals).map(([k, v]) => [k, v / denom])
+  );
+
+  // Top emotions, sorted desc (cap to keep legend tidy)
+  const entries = Object.entries(averaged)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  return {
+    total,
+    succeeded,
+    failed,
+    buckets,
+    emotionLabels: entries.map(([k]) => k),
+    emotionValues: entries.map(([, v]) => v),
+    _texts: texts  // used to render an overall word cloud
+  };
+}
+
+
+/* Heuristic “sentiment score”: use the top emotion %;
+   if the top emotion matches overall_sentiment, even better. */
+function deriveSentimentScore(analysis) {
+  const emos = Array.isArray(analysis?.emotions) ? analysis.emotions : [];
+  if (!emos.length) return null;
+  let top = { label: '', value: -1 };
+  emos.forEach(e => {
+    const v = toPct(e.score);
+    if (v > top.value) top = { label: e.label || '', value: v };
+  });
+  // prefer the emotion that matches overall_sentiment if present
+  const overall = String(analysis?.overall_sentiment || '').toLowerCase();
+  const match = emos.find(e => String(e.label || '').toLowerCase().includes(overall));
+  const preferred = match ? toPct(match.score) : top.value;
+  return isFinite(preferred) ? preferred : null;
+}
+
+function toPct(n) {
+  if (typeof n !== 'number') return NaN;
+  return n <= 1 ? n * 100 : n;
+}
+function fmtPct(n) {
+  return Number.isFinite(n) ? `${n.toFixed(1)}%` : '—';
+}
+
+/* ========= UI builders ========= */
+
+function buildReportHTML(stats) {
+  return `
+  <section class="bg-white text-gray-900 rounded-3xl border border-purple-100 shadow-2xl overflow-hidden">
+    <!-- Header -->
+    <div class="p-6 md:p-8 flex flex-col gap-6">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div class="flex items-center space-x-4">
+          <div class="w-14 h-14 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow">
+            <i class="fas fa-wave-square text-white text-xl"></i>
+          </div>
+          <div>
+            <h2 class="text-3xl font-black text-slate-900">Batch Processing Complete</h2>
+            <p class="text-slate-600 text-sm">Processed ${stats.total} file${stats.total===1?'':'s'} — ${stats.succeeded} succeeded, ${stats.failed} failed</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top stats -->
+      <div class="grid gap-4 md:grid-cols-3">
+        <div class="bg-white rounded-2xl border border-slate-200 px-5 py-4 text-center shadow-sm">
+          <p class="text-xs uppercase tracking-widest text-slate-500 font-semibold">Total Files</p>
+          <p class="text-3xl font-black text-slate-900 mt-2">${stats.total}</p>
+        </div>
+        <div class="bg-green-50 rounded-2xl border border-green-200 px-5 py-4 text-center shadow-sm text-green-700">
+          <p class="text-xs uppercase tracking-widest text-green-600 font-semibold">Successful</p>
+          <p class="text-3xl font-black mt-2">${stats.succeeded}</p>
+        </div>
+        <div class="bg-red-50 rounded-2xl border border-red-200 px-5 py-4 text-center shadow-sm text-red-700">
+          <p class="text-xs uppercase tracking-widest text-red-600 font-semibold">Failed</p>
+          <p class="text-3xl font-black mt-2">${stats.failed}</p>
+        </div>
+      </div>
+
+      <!-- Buckets + Donut + Word Cloud -->
+      <div class="grid gap-6 lg:grid-cols-2">
+        <!-- Sentiment buckets -->
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <p class="text-xs uppercase tracking-widest text-slate-500 font-semibold">Sentiment Buckets</p>
+              <h3 class="text-lg font-semibold text-slate-800">Session Sentiment Overview</h3>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-slate-400">
+              <span class="inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">Positive</span>
+              <span class="inline-flex items-center px-2 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">Negative</span>
+              <span class="inline-flex items-center px-2 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Mixed</span>
+            </div>
+          </div>
+          <div class="grid gap-4 md:grid-cols-3">
+            ${bucketCard('positive','Positive','from-green-500 to-emerald-500')}
+            ${bucketCard('negative','Negative','from-red-500 to-rose-500')}
+            ${bucketCard('mixed','Mixed','from-amber-300 via-amber-400 to-yellow-400')}
+          </div>
+        </div>
+
+        <!-- Emotion donut -->
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <p class="text-xs uppercase tracking-widest text-slate-500 font-semibold">Emotional Mix</p>
+              <h3 class="text-lg font-semibold text-slate-800">Overall Emotion Distribution</h3>
+            </div>
+          </div>
+          <div class="h-64"><canvas id="overallEmotionChart"></canvas></div>
+          <div id="overallEmotionLegend" class="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-600"></div>
+        </div>
+
+        <!-- Overall Word Cloud -->
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm lg:col-span-2">
+          <p class="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-2">Keywords</p>
+          <h3 class="text-lg font-semibold text-slate-800 mb-3">Overall Word Cloud</h3>
+          <!-- renderWordCloud will fill this with horizontal chips -->
+          <div id="overallWordCloud" class="flex flex-wrap gap-2"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  `;
+}
+
+
+/* Card shell used for each bucket column */
+function bucketCard(key, title, gradient) {
+  return `
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <h4 class="text-sm font-semibold text-slate-600 mb-3">${title}</h4>
+      <div id="bucket-${key}" class="space-y-2 max-h-40 overflow-y-auto">
+        <p class="text-xs text-slate-400">No videos detected.</p>
+      </div>
+    </div>
+  `;
+}
+
+/* Populate sentiment bucket lists with linkable buttons */
+function injectBucketLists(stats) {
+  const keys = ['positive', 'negative', 'mixed'];
+  keys.forEach((key) => {
+    const wrap = document.getElementById(`bucket-${key}`);
+    if (!wrap) return;
+
+    const items = (stats.buckets && stats.buckets[key]) || [];
+    if (!items.length) {
+      wrap.innerHTML = `<p class="text-xs text-slate-400">No videos detected.</p>`;
+      return;
+    }
+
+    const gradient =
+      key === 'positive' ? 'from-green-500 to-emerald-500' :
+      key === 'negative' ? 'from-red-500 to-rose-500' :
+                           'from-amber-300 via-amber-400 to-yellow-400';
+    const textColor = key === 'mixed' ? 'text-slate-900' : 'text-white';
+
+    wrap.innerHTML = items.map((it, i) => `
+      <button type="button"
+              class="w-full block bg-gradient-to-r ${gradient} ${textColor}
+                     rounded-lg px-3 py-2 text-sm font-medium shadow-sm hover:shadow-md transition"
+              onclick="scrollToCard('card-${it.rid}')">
+        <div class="flex justify-between items-center">
+          <span class="truncate mr-3">${i + 1}. ${escapeHTML(it.label)}</span>
+          <span class="text-xs font-semibold">${fmtPct(it.score)}</span>
+        </div>
+      </button>
+    `).join('');
+  });
+}
+
+/* Smooth scroll helper to jump to a specific video card */
+function scrollToCard(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+}
+
+/* Donut with Chart.js — animation disabled + legend builder */
+function renderOverallDonut(canvasId, labels, values) {
+  const el = document.getElementById(canvasId);
+  if (!el || !Array.isArray(labels) || !labels.length) return;
+
+  const ctx = el.getContext('2d');
+
+  // cleanup old chart if present
+  if (_overallReportState.chart) {
+    try { _overallReportState.chart.destroy(); } catch {}
+    _overallReportState.chart = null;
+  }
+
+  _overallReportState.chart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values.map(v => Math.max(0, Number(v) || 0)),
+        backgroundColor: [
+          '#8b5cf6','#ec4899','#06b6d4','#10b981','#f59e0b',
+          '#ef4444','#84cc16','#f97316','#6366f1','#14b8a6'
+        ],
+        borderColor: '#ffffff',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      animation: { duration: 0 },   // disable live refresh
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: (c) => `${c.label}: ${fmtPct(c.parsed)}` }
+        }
+      }
+    }
+  });
+
+  // Legend under the donut
+  const legendHost = document.getElementById('overallEmotionLegend');
+  const chart = _overallReportState.chart;
+  if (legendHost && chart) {
+    const { labels: lbs } = chart.data;
+    const data = chart.data.datasets[0].data;
+    legendHost.innerHTML = lbs.map((lb, i) => `
+      <div class="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
+        <span class="font-semibold text-slate-700">${escapeHTML(lb)}</span>
+        <span>${fmtPct(Number(data[i]))}</span>
+      </div>
+    `).join('');
+  }
+}
+
+
+
+/* Horizontal word-cloud as chips (size/opacity = frequency) */
+const _WC_STOPWORDS = new Set(['the','and','for','you','are','was','with','this','that','have','from','but','not','your','our','get','had','been','they','them','his','her','she','him','out','who','what','when','where','why','how','can','could','would','should','into','over','under','after','before','because','while','there','their','about','also','just','than','then','very','much','more','most','some','any','many','few','each','other','only','ever','never','again','one','two','three','four','five','six','seven','eight','nine','ten','on','in','at','by','to','of','is','am','be','as','an','or','if','so','do','does','did','were','will','shall','i','me','my','mine','we','us','our','ours','it','its']);
+function renderWordCloud(containerId, text){
+  ensureWCStyles();
+  const el = document.getElementById(containerId); if(!el) return;
+  const words = (String(text||'').toLowerCase().match(/[a-zA-Z]{3,}/g) || [])
+    .filter(w => !_WC_STOPWORDS.has(w));
+  if (!words.length) { el.innerHTML = '<p class="text-xs text-slate-400">No keywords</p>'; return; }
+  const freq = {};
+  for (const w of words) freq[w] = (freq[w]||0) + 1;
+  const entries = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,60);
+  const max = entries[0][1] || 1;
+
+  // Build chips with size/opacity scaling (horizontal wrap)
+  el.className = 'wc-ribbon';
+  el.innerHTML = entries.map(([w,c]) => {
+    const size = 12 + Math.round((c / max) * 8);     // 12..20px
+    const op   = 0.55 + (c / max) * 0.45;            // 0.55..1
+    return `<span class="wc-chip" style="font-size:${size}px;opacity:${op}">${escapeHTML(w)}</span>`;
+  }).join('');
+}
+
+
+/* HTML helpers */
+
+function bucketCard(key, title, gradient) {
+  return `
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <h4 class="text-sm font-semibold text-slate-600 mb-3">${title}</h4>
+      <div id="bucket-${key}" class="space-y-2 max-h-40 overflow-y-auto">
+        <p class="text-xs text-slate-400">No videos detected.</p>
+      </div>
+    </div>
+  `;
+}
+
+function escapeHTML(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+
+
+
+
+
+
+/* ===========================
+   OVERALL REPORT HELPERS
+   =========================== */
+
+/** Build a small report object from job items */
+function buildOverallReport(items) {
+  const report = {
+    total: items.length,
+    success: 0,
+    failed: 0,
+    buckets: { positive: 0, negative: 0, mixed: 0, neutral: 0, unknown: 0 },
+    emotions: {} // {label: totalPercent}
+  };
+
+  items.forEach(it => {
+    const ok = !!(it.transcribed && it.analysis && it.transcript);
+    if (ok) report.success += 1;
+    else if (it.error || it.downloaded === false) report.failed += 1;
+
+    const sentiment = String(it?.analysis?.overall_sentiment || 'unknown').toLowerCase();
+    if (report.buckets[sentiment] === undefined) report.buckets.unknown += 1;
+    else report.buckets[sentiment] += 1;
+
+    // sum emotion %s
+    const emos = Array.isArray(it?.analysis?.emotions) ? it.analysis.emotions : [];
+    emos.forEach(e => {
+      const label = String(e.label || '').trim();
+      if (!label) return;
+      let val = Number(e.score || 0);
+      if (val <= 1) val *= 100;       // normalize 0..1 -> 0..100
+      report.emotions[label] = (report.emotions[label] || 0) + val;
+    });
+  });
+
+  return report;
+}
+
+// /** Render the UI card and donut */
+// function renderOverallReportCard(report) {
+//   const el = document.getElementById('overallReportCard');
+//   if (!el) return;
+
+//   const emotionLabels = Object.keys(report.emotions);
+//   const emotionValues = emotionLabels.map(k => report.emotions[k]);
+
+//   el.classList.remove('hidden');
+//   el.innerHTML = `
+//     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
+//       <div class="flex items-center space-x-4">
+//         <div class="w-14 h-14 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
+//           <i class="fas fa-chart-pie text-white text-xl"></i>
+//         </div>
+//         <div>
+//           <h3 class="text-2xl font-bold text-white">Video Analytics Reviews Report</h3>
+//           <p class="text-sm text-gray-300 mt-1">Summarized after the current search finishes processing.</p>
+//         </div>
+//       </div>
+//     </div>
+
+//     <div class="grid gap-4 md:grid-cols-3 mb-6">
+//       <div class="bg-white/5 rounded-2xl border border-white/10 px-5 py-4 text-center">
+//         <p class="text-xs uppercase tracking-widest text-gray-300 font-semibold">Total Items</p>
+//         <p class="text-3xl font-black text-white mt-2">${report.total}</p>
+//       </div>
+//       <div class="bg-green-500/10 rounded-2xl border border-green-400/30 px-5 py-4 text-center">
+//         <p class="text-xs uppercase tracking-widest text-green-300 font-semibold">Successful</p>
+//         <p class="text-3xl font-black text-green-200 mt-2">${report.success}</p>
+//       </div>
+//       <div class="bg-rose-500/10 rounded-2xl border border-rose-400/30 px-5 py-4 text-center">
+//         <p class="text-xs uppercase tracking-widest text-rose-300 font-semibold">Failed</p>
+//         <p class="text-3xl font-black text-rose-200 mt-2">${report.failed}</p>
+//       </div>
+//     </div>
+
+//     <div class="grid gap-6 lg:grid-cols-2">
+//       <div class="bg-white/5 rounded-2xl border border-white/10 p-5">
+//         <p class="text-xs uppercase tracking-widest text-gray-300 font-semibold mb-2">Sentiment buckets</p>
+//         <div class="grid grid-cols-2 gap-3 text-sm">
+//           ${Object.entries(report.buckets).map(([k,v]) => `
+//             <div class="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+//               <span class="capitalize text-gray-200">${k.replace('_',' ')}</span>
+//               <span class="text-white font-semibold">${v}</span>
+//             </div>
+//           `).join('')}
+//         </div>
+//       </div>
+
+//       <div class="bg-white/5 rounded-2xl border border-white/10 p-5">
+//         <p class="text-xs uppercase tracking-widest text-gray-300 font-semibold mb-2">Overall emotion distribution</p>
+//         <div class="h-60"><canvas id="overallEmotionsDonut"></canvas></div>
+//       </div>
+//     </div>
+//   `;
+
+//   if (emotionLabels.length && window.Chart) {
+//     const ctx = document.getElementById('overallEmotionsDonut').getContext('2d');
+//     new Chart(ctx, {
+//       type: 'doughnut',
+//       data: {
+//         labels: emotionLabels,
+//         datasets: [{
+//           data: emotionValues,
+//           backgroundColor: ['#8b5cf6','#ec4899','#06b6d4','#10b981','#f59e0b','#ef4444',
+//                             '#84cc16','#f97316','#6366f1','#14b8a6'].slice(0, emotionValues.length),
+//           borderColor: '#111827',
+//           borderWidth: 1
+//     }]},
+//       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position:'bottom' } } }
+//     });
+//   }
+// }
+
+/* ===== actions ===== */
+async function forceDownload(url, hotel, jobId, reelId) {
+  if (!url || !jobId) { setHotelStatus('Missing reel information for download.', 'error'); return; }
+  setHotelStatus('Downloading reel…', 'info');
+  try {
+    const r = await fetch('/api/download', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ url, hotel: hotel || hotelReelState.hotel, job_id: jobId })
+    });
+    const data = await r.json().catch(()=>({}));
+    if (!r.ok || (data.ok !== undefined && data.ok !== true)) {
+      setHotelStatus(data.error || 'Download failed.', 'error'); return;
+    }
+
+    // update local cache instantly
+    const it = (window._items || []).find(x => x.reel_id === reelId);
+    if (it) { it.downloaded = true; it.filepath = data.filepath; it.error = null; }
+    renderItems(window._items, jobId, hotel || hotelReelState.hotel);
+
+    setHotelStatus(`Download complete${reelId ? ' for ' + reelId : ''}.`, 'success');
+    // optional: sync with server
+    pollStatus(jobId, hotel || hotelReelState.hotel, true);
+  } catch(err) {
+    setHotelStatus(`Download failed: ${err}`, 'error');
+  }
+}
+
+async function transcribeFile(filepath, reelId, jobId) {
+  if (!jobId || !reelId) { setHotelStatus('Missing reel information for transcription.', 'error'); return; }
+  if (!filepath) { setHotelStatus('Download the reel before transcribing.', 'warning'); return; }
+  setHotelStatus('Transcribing reel…', 'info');
+  try {
+    const r = await fetch('/api/transcribe', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ filepath, reel_id: reelId, job_id: jobId })
+    });
+    const data = await r.json().catch(()=>({}));
+    if (!r.ok || (data.ok !== undefined && data.ok !== true)) {
+      setHotelStatus(data.error || data.analysis_error || 'Transcription failed.', 'error'); return;
+    }
+
+    // update local cache instantly
+    const it = (window._items || []).find(x => x.reel_id === reelId);
+    if (it) {
+      it.transcribed = true;
+      it.error = null;
+      it.transcript = data.transcript || '';
+      it.analysis = data.analysis || null;
+    }
+    renderItems(window._items, jobId, hotelReelState.hotel);
+
+    if (data.analysis_error) setHotelStatus(`Transcript ready, analysis warning: ${data.analysis_error}`, 'warning');
+    else setHotelStatus('Transcription and analysis complete.', 'success');
+
+    // optional: reconcile with server later
+    pollStatus(jobId, hotelReelState.hotel, true);
+  } catch(err) {
+    setHotelStatus(`Transcription failed: ${err}`, 'error');
+  }
+}
+// --- Auto pipeline state ---
+const autoRun = {
+  enabled: true,
+  running: false,
+  maxConcurrent: 2,       // you can tune this (1–3 is safe)
+  inFlight: 0,
+  processing: new Set(),  // reel_ids currently being handled
+};
+
+// Toggle wiring
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'autoRunToggle') {
+    autoRun.enabled = !!e.target.checked;
+    if (autoRun.enabled && hotelReelState.jobId) {
+      // kick again if user re-enabled while results are present
+      kickAuto(hotelReelState.jobId);
+    }
+  }
+});
+
+// Call this any time we want to (re)drive the pipeline
+async function kickAuto(jobId) {
+  if (!autoRun.enabled || !jobId) return;
+  if (autoRun.inFlight >= autoRun.maxConcurrent) return;
+
+  // Get freshest items (we rely on server status as source of truth)
+  let items = [];
+  try {
+    const r = await fetch(`/api/status?job_id=${encodeURIComponent(jobId)}`);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return;
+    items = Array.isArray(j.items) ? j.items : [];
+    // also refresh UI (optional safety)
+    renderItems(items, jobId, hotelReelState.hotel);
+  } catch { /* ignore network hiccups */ }
+
+  // If everything is finished, stop gracefully
+  const allDone = items.length > 0 && items.every(it => it.downloaded && it.transcribed);
+  if (allDone) {
+    autoRun.running = false;
+    setHotelStatus('Auto: all items processed.', 'success');
+    return;
+  }
+
+  // Launch work for items that still need it (respecting concurrency)
+  for (const it of items) {
+    if (autoRun.inFlight >= autoRun.maxConcurrent) break;
+    if (!it || !it.reel_id) continue;
+    if (autoRun.processing.has(it.reel_id)) continue; // already in progress
+
+    // Priority: download first; if downloaded but not transcribed, transcribe
+    if (!it.downloaded && it.url) {
+      autoRun.processing.add(it.reel_id);
+      autoRun.inFlight++;
+      downloadThenTranscribe(it, jobId)
+        .finally(() => {
+          autoRun.inFlight--;
+          autoRun.processing.delete(it.reel_id);
+          // keep the pipeline moving
+          setTimeout(() => kickAuto(jobId), 400);
+        });
+    } else if (it.downloaded && !it.transcribed && it.filepath) {
+      autoRun.processing.add(it.reel_id);
+      autoRun.inFlight++;
+      transcribeOnly(it, jobId)
+        .finally(() => {
+          autoRun.inFlight--;
+          autoRun.processing.delete(it.reel_id);
+          setTimeout(() => kickAuto(jobId), 400);
+        });
+    }
+  }
+}
+
+// Download then immediately transcribe this item
+async function downloadThenTranscribe(item, jobId) {
+  try {
+    setHotelStatus(`Downloading reel ${item.reel_id}…`, 'info');
+    const resp = await fetch('/api/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: item.url,
+        hotel: hotelReelState.hotel,
+        job_id: jobId
+      })
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || (data.ok !== undefined && data.ok !== true)) {
+      setHotelStatus(data.error || 'Download failed.', 'error');
+      return;
+    }
+
+    // After download, transcribe
+    const fp = data.filepath || item.filepath;
+    if (fp) {
+      await transcribeFile(fp, item.reel_id, jobId);
+    }
+  } catch (e) {
+    setHotelStatus(`Download error: ${e}`, 'error');
+  } finally {
+    // Update UI regardless
+    pollStatus(jobId, hotelReelState.hotel, true);
+  }
+}
+
+// Transcribe only (when file already downloaded)
+async function transcribeOnly(item, jobId) {
+  if (!item.filepath) return;
+  try {
+    setHotelStatus(`Transcribing reel ${item.reel_id}…`, 'info');
+    await transcribeFile(item.filepath, item.reel_id, jobId);
+  } finally {
+    pollStatus(jobId, hotelReelState.hotel, true);
+  }
+}
+async function forceDownload(url, hotel, jobId, opts = {}) {
+  const { silent = false, button = null } = opts;
+
+  if (!url || !jobId) {
+    if (!silent) setHotelStatus('Missing reel information for download.', 'error');
+    return { ok: false, error: 'Missing url or jobId' };
+  }
+
+  let originalHTML = '';
+  if (button) {
+    originalHTML = button.innerHTML;
+    button.disabled = true;
+    if (!silent) button.innerHTML = 'Downloading…';
+  }
+
+  try {
+    const res = await fetch('/api/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url,
+        hotel: hotel || hotelReelState.hotel,
+        job_id: jobId
+      }),
+    });
+
+    // Try JSON first; if that fails (e.g., HTML 502), fall back to text
+    let data = {};
+    try { data = await res.json(); } catch { data = { error: await res.text() }; }
+
+    if (!res.ok || (data.ok !== undefined && data.ok !== true)) {
+      const msg = (data && (data.error || data.details)) || 'Download failed.';
+      if (!silent) setHotelStatus(msg, 'error');
+      return { ok: false, error: msg };
+    }
+
+    // success
+    const audioState = data.audio === 'missing' ? 'warning' : 'success';
+    if (!silent) {
+      setHotelStatus(
+        data.audio === 'missing'
+          ? 'Downloaded (no audio track detected).'
+          : 'Download complete.',
+        audioState
+      );
+    }
+
+    // In manual mode, trigger an immediate refresh
+    if (!silent) {
+      pollStatus(jobId, hotel || hotelReelState.hotel, true);
+    }
+
+    return { ok: true, data };
+  } catch (err) {
+    if (!silent) setHotelStatus(`Download failed: ${err}`, 'error');
+    return { ok: false, error: String(err) };
+  } finally {
+    if (button) {
+      button.disabled = false;
+      if (!silent) button.innerHTML = originalHTML;
+    }
+  }
+}
+
+async function transcribeFile(filepath, reelId, jobId, opts = {}) {
+  const { silent = false, button = null } = opts;
+
+  if (!jobId || !reelId) {
+    if (!silent) setHotelStatus('Missing reel information for transcription.', 'error');
+    return { ok: false, error: 'Missing reelId or jobId' };
+  }
+  if (!filepath) {
+    if (!silent) setHotelStatus('Download the reel before transcribing.', 'warning');
+    return { ok: false, error: 'Missing filepath' };
+  }
+
+  let originalHTML = '';
+  if (button) {
+    originalHTML = button.innerHTML;
+    button.disabled = true;
+    if (!silent) button.innerHTML = 'Transcribing…';
+  }
+
+  try {
+    const res = await fetch('/api/transcribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filepath, reel_id: reelId, job_id: jobId }),
+    });
+
+    let data = {};
+    try { data = await res.json(); } catch { data = { error: await res.text() }; }
+
+    if (!res.ok || (data.ok !== undefined && data.ok !== true)) {
+      const msg = data.error || data.analysis_error || 'Transcription failed.';
+      if (!silent) setHotelStatus(msg, 'error');
+      return { ok: false, error: msg };
+    }
+
+    if (!silent) {
+      if (data.analysis_error) {
+        setHotelStatus(`Transcript ready; analysis warning: ${data.analysis_error}`, 'warning');
+      } else {
+        setHotelStatus('Transcription and analysis complete.', 'success');
+      }
+    }
+
+    // Refresh cards in manual mode
+    if (!silent) {
+      pollStatus(jobId, hotelReelState.hotel, true);
+    }
+
+    return { ok: true, data };
+  } catch (err) {
+    if (!silent) setHotelStatus(`Transcription failed: ${err}`, 'error');
+    return { ok: false, error: String(err) };
+  } finally {
+    if (button) {
+      button.disabled = false;
+      if (!silent) button.innerHTML = originalHTML;
+    }
+  }
+}
+function sentimentBadgeColor(sentiment) {
+    const s = (sentiment || '').toLowerCase();
+    if (s.includes('positive')) return 'bg-green-100 text-green-700 border-green-200';
+    if (s.includes('negative')) return 'bg-red-100 text-red-700 border-red-200';
+    return 'bg-amber-100 text-amber-700 border-amber-200';
+}
+function scrollToCard(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+}
+
+function createSentimentGauge(canvasId, score) {
+    const el = document.getElementById(canvasId);
+    if (!el) return;
+    const ctx = el.getContext('2d');
+    const val = Math.max(0, Math.min(100, Number(score)||0));
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: ['Sentiment','Remaining'], datasets: [{ data: [val, 100-val], backgroundColor: ['#6366f1','#e5e7eb'], borderWidth: 0 }]},
+        options: { cutout: '70%', responsive: true, maintainAspectRatio: false, plugins: {legend:{display:false},tooltip:{enabled:false}} },
+        plugins: [{
+            id: 'label',
+            afterDraw(chart){
+                const {ctx} = chart, {top,bottom,left,right}=chart.chartArea;
+                const x=(left+right)/2, y=(top+bottom)/2;
+                ctx.save();
+                ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillStyle='#111827'; ctx.font='bold 18px Inter,system-ui';
+                ctx.fillText(`${val.toFixed(1)}%`, x, y-8);
+                ctx.fillStyle='#6b7280'; ctx.font='12px Inter,system-ui';
+                ctx.fillText('Sentiment score', x, y+10);
+                ctx.restore();
+            }
+        }]
+    });
+}
+
+function createEmotionsDonut(canvasId, emotions){
+    const el=document.getElementById(canvasId); if(!el) return;
+    const ctx=el.getContext('2d');
+    const labels = emotions.map(e=>e.label);
+    const data = emotions.map(e=>{
+        let s = Number(e.score)||0; if(s<=1) s*=100; return Math.max(0,s);
+    });
+    new Chart(ctx,{
+        type:'doughnut',
+        data:{labels,datasets:[{data, backgroundColor:['#8b5cf6','#ec4899','#06b6d4','#10b981','#f59e0b','#ef4444','#84cc16','#14b8a6','#6366f1','#f97316'], borderColor:'#fff', borderWidth:2}]},
+        options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}, tooltip:{callbacks:{label(c){return `${c.label}: ${c.parsed.toFixed(1)}%`;}}}}}
+    });
+}
+
+function animateBars(containerId){
+    const box=document.getElementById(containerId); if(!box) return;
+    box.querySelectorAll('[data-width]').forEach((bar, i)=>{
+        setTimeout(()=>{bar.style.width=`${Math.min(100, Number(bar.dataset.width)||0)}%`}, i*150+300);
+    });
+}
+
+</script>
+{% endblock %}

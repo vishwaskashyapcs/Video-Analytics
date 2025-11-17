@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+ENV/
+
+# Flask
+instance/
+
+# OS
+.DS_Store
+
+# Local env and secrets
+.env
+
+# Uploads and generated media
+uploads/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

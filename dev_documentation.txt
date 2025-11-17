@@ -1,0 +1,278 @@
+================================================================================
+DEVELOPMENT DOCUMENTATION - VIDEO SPEECH-TO-TEXT TRANSCRIBER
+================================================================================
+
+Date: September 17, 2025
+Time: Initial Development Session
+
+================================================================================
+PROJECT OVERVIEW
+================================================================================
+
+Created a complete web application for video upload and speech-to-text transcription
+using Sarvam AI's API with automatic language detection and English translation.
+
+APPLICATION FEATURES:
+- Modern responsive UI with glassmorphism design following Vercel v0 guidelines
+- Video file upload with drag & drop functionality
+- Automatic audio extraction from video using FFmpeg
+- Speech-to-text transcription with Sarvam AI API integration
+- Auto language detection and English translation
+- Interactive results with copy/download functionality
+- Mobile-responsive design with modern animations
+
+================================================================================
+TECHNICAL IMPLEMENTATION
+================================================================================
+
+BACKEND (Flask Application):
+- app.py: Main Flask application with video processing logic
+- Environment-based configuration with .env file
+- Secure file handling with size limits (100MB max)
+- Automatic cleanup of temporary files
+- Error handling and user feedback system
+
+AUDIO PROCESSING:
+- FFmpeg integration for audio extraction from video files
+- Support for multiple video formats (MP4, AVI, MOV, MKV, WMV, FLV, WebM)
+- Audio conversion to 16kHz mono WAV format for optimal API compatibility
+- Temporary file management with automatic cleanup
+
+API INTEGRATION:
+- Sarvam AI Speech-to-Text Translation API
+- Endpoint: https://api.sarvam.ai/speech-to-text-translate
+- Features: Auto language detection + English translation
+- Secure API key management through environment variables
+- Comprehensive error handling and user feedback
+
+FRONTEND (Modern UI):
+- Base template with consistent design system
+- Upload page with drag & drop functionality
+- Results page with transcript display and actions
+- Tailwind CSS for styling with custom CSS enhancements
+- Alpine.js for interactive JavaScript functionality
+- Font Awesome icons for visual elements
+
+================================================================================
+FILE STRUCTURE
+================================================================================
+
+/Users/krishsharma/Desktop/speech to text/
+├── app.py                 # Main Flask application
+├── requirements.txt       # Python dependencies
+├── .env                  # Environment variables (API key)
+├── README.md             # User documentation and setup guide
+├── dev_documentation.txt # This development documentation
+├── uploads/              # Temporary file storage directory
+├── templates/            # Jinja2 HTML templates
+│   ├── base.html        # Base template with common layout
+│   ├── index.html       # Upload form page
+│   └── result.html      # Transcription results page
+└── static/              # Static web assets
+    └── css/
+        └── style.css    # Custom CSS styles and animations
+
+================================================================================
+DEPENDENCIES AND REQUIREMENTS
+================================================================================
+
+Python Dependencies (requirements.txt):
+- Flask==2.3.3           # Web framework
+- Werkzeug==2.3.7        # WSGI utilities
+- requests==2.31.0       # HTTP library for API calls
+- python-dotenv==1.0.0   # Environment variable management
+
+System Dependencies:
+- Python 3.7+            # Runtime environment
+- FFmpeg                 # Audio/video processing tool
+
+External Services:
+- Sarvam AI API          # Speech-to-text transcription service
+- API Key: sk_w308390j_mmVymY0oA1I7Go9Y9qXnSpJL (stored in .env)
+
+================================================================================
+SECURITY CONSIDERATIONS
+================================================================================
+
+API KEY MANAGEMENT:
+- Sarvam AI API key stored securely in .env file
+- Environment variable loading with fallback error handling
+- .env file excluded from version control (should be in .gitignore)
+
+FILE SECURITY:
+- File type validation for uploaded videos
+- File size limits to prevent abuse (100MB maximum)
+- Secure filename handling with Werkzeug's secure_filename()
+- Automatic cleanup of temporary files after processing
+- Upload directory isolation
+
+INPUT VALIDATION:
+- File extension whitelist for allowed video formats
+- MIME type checking for uploaded files
+- Error handling for malformed or corrupted files
+- User feedback for all error conditions
+
+================================================================================
+USER INTERFACE DESIGN
+================================================================================
+
+DESIGN PRINCIPLES:
+- Modern glassmorphism aesthetic with backdrop blur effects
+- Purple/pink gradient color scheme following Vercel v0 guidelines
+- Responsive design for desktop and mobile devices
+- Accessibility considerations with proper focus states
+- Smooth animations and transitions for enhanced UX
+
+INTERACTIVE FEATURES:
+- Drag and drop file upload with visual feedback
+- Real-time file information display (name, size)
+- Loading states with animated spinners
+- Copy to clipboard functionality
+- Download transcript as text file
+- Responsive navigation and error messaging
+
+RESPONSIVE DESIGN:
+- Mobile-first approach with breakpoint-based layouts
+- Flexible grid system for different screen sizes
+- Touch-friendly interface elements
+- Optimized typography scaling
+
+================================================================================
+ERROR HANDLING AND LOGGING
+================================================================================
+
+APPLICATION ERRORS:
+- Comprehensive try-catch blocks for all operations
+- User-friendly error messages with actionable feedback
+- Flask flash messaging system for user notifications
+- Console logging for debugging and monitoring
+
+API ERROR HANDLING:
+- HTTP status code validation for Sarvam AI API responses
+- Detailed error messages for API failures
+- Fallback behavior for network issues
+- Rate limiting awareness and user guidance
+
+FILE PROCESSING ERRORS:
+- FFmpeg execution error handling
+- File format validation and user feedback
+- Disk space and permission error management
+- Cleanup procedures for failed operations
+
+================================================================================
+TESTING AND QUALITY ASSURANCE
+================================================================================
+
+MANUAL TESTING COMPLETED:
+- File upload functionality with various video formats
+- Audio extraction process verification
+- API integration testing with sample files
+- UI responsiveness across different screen sizes
+- Error condition handling and user feedback
+
+RECOMMENDED AUTOMATED TESTING:
+- Unit tests for audio extraction functions
+- Integration tests for API communication
+- UI testing for form submission and file handling
+- Performance testing for large file uploads
+- Security testing for file validation
+
+================================================================================
+DEPLOYMENT CONSIDERATIONS
+================================================================================
+
+PRODUCTION REQUIREMENTS:
+- FFmpeg installation on production server
+- Environment variable configuration for API key
+- Proper file upload directory permissions
+- SSL certificate for secure file uploads
+- Resource limits for file processing
+
+SCALING CONSIDERATIONS:
+- Background job processing for large files
+- File storage optimization (cloud storage integration)
+- API rate limit management
+- Caching strategies for frequently accessed content
+- Load balancing for multiple application instances
+
+================================================================================
+FUTURE ENHANCEMENTS
+================================================================================
+
+POTENTIAL IMPROVEMENTS:
+- Support for multiple audio tracks in videos
+- Batch processing for multiple video files
+- User account system with upload history
+- Advanced transcript editing capabilities
+- Export options (PDF, Word, etc.)
+- Integration with cloud storage services
+- Real-time transcription progress updates
+- Support for live video streaming transcription
+
+TECHNICAL DEBT:
+- Add comprehensive unit and integration tests
+- Implement proper logging framework
+- Add database support for user sessions
+- Optimize file processing for large videos
+- Add content security policy headers
+- Implement proper CORS handling
+
+================================================================================
+END OF DOCUMENTATION UPDATE
+================================================================================
+--------------------------------------------------------------------------------
+Date: September 17, 2025 12:24 PM
+Update: Git initialization and push attempt
+- Added .gitignore (ignores .env and uploads/)
+- Initialized git and created initial commit
+- Updated README to indicate port 8080
+- Attempted to set remote and push to https://github.com/krishzapcg/speech_to_text.git
+- Push failed: Repository not found (likely repo not created or no permission)
+Next steps proposed: create repo via GitHub CLI or create it on GitHub and retry push.
+
+Date: September 17, 2025 12:26 PM
+Update: Successfully pushed to GitHub
+- Changed remote to https://github.com/krishsharma1008/speech-to-text-test.git
+- Successfully pushed main branch to GitHub repository
+- Repository is now live and accessible
+--------------------------------------------------------------------------------
+
+Date: September 17, 2025 03:37 PM IST
+Update: Added Sentiment Analysis via Sarvam Chat Completions
+- Backend: Introduced `analyze_sentiment_with_sarvam` in `app.py` calling `https://api.sarvam.ai/chat/completions` with strict JSON response contract
+- Flow: After transcription, transcript is analyzed for overall sentiment, confidence, emotions, reasons, strengths, weaknesses, and suggestions
+- Frontend: `templates/result.html` renders a new Sentiment Analysis section with badges, percentages, and lists; includes fallback for API error and raw text
+- Docs: Updated `README.md` to include the new feature
+- Security: `SARVAM_API_KEY` still loaded via `.env` and gitignored
+
+Date: September 17, 2025 03:45 PM IST
+Update: Fixed Sentiment Analysis API Endpoint
+- Issue: 404 error when calling Sarvam Chat Completions API
+- Root Cause: Incorrect endpoint URL `https://api.sarvam.ai/chat/completions`
+- Fix: Updated to correct endpoint `https://api.sarvam.ai/v1/chat/completions` (added `/v1` path)
+- Status: Sentiment analysis should now work correctly
+
+Date: September 18, 2025 11:42 AM IST
+Update: Enhanced Sentiment Analysis with Interactive Data Visualizations
+- Added Chart.js library to `templates/base.html` for interactive charting capabilities
+- Completely redesigned sentiment analysis section in `templates/result.html` with:
+  * Interactive sentiment confidence gauge chart (doughnut chart with custom center text)
+  * Emotions breakdown pie chart with vibrant colors and hover effects
+  * Animated progress bars for detailed emotion scores with staggered animations
+  * Key terms word cloud visualization from transcript text
+- JavaScript enhancements:
+  * `createSentimentGauge()`: Creates animated confidence meter with sentiment-based colors
+  * `createEmotionsChart()`: Generates interactive pie chart for emotion distribution
+  * `animateEmotionBars()`: Staggered animation for emotion score bars
+  * `createWordCloud()`: Generates word frequency visualization from transcript
+- UI improvements:
+  * Modern dashboard-style grid layout for visualizations
+  * Responsive design with proper mobile adaptations
+  * Enhanced color coding based on sentiment types and emotion scores
+  * Smooth animations and transitions for better user experience
+- Technical implementation:
+  * Chart.js 3.9.1 integration for professional-grade visualizations
+  * Proper template variable handling in JavaScript
+  * Error-safe rendering with fallbacks for missing data
+  * Performance optimizations with delayed loading and staggered animations
+- Result: Transformed static sentiment display into engaging, interactive data visualizations

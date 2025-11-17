@@ -1,0 +1,660 @@
+{% extends "base.html" %}
+
+{% block title %}Transcription Results - Speech-to-Text Video Transcriber{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-10" x-data="resultsPage()" x-init="init()">
+
+  <!-- Summary Section -->
+  <section class="bg-white text-gray-900 rounded-3xl border border-purple-100 shadow-2xl overflow-hidden">
+    <div class="p-8 space-y-6">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div class="flex items-center space-x-4">
+          <div class="w-16 h-16 bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 rounded-2xl flex items-center justify-center shadow-lg">
+            <i class="fas fa-wave-square text-white text-2xl"></i>
+          </div>
+          <div>
+            <h2 class="text-3xl md:text-4xl font-black text-slate-900">Batch Processing Complete</h2>
+            <p class="text-slate-600 text-sm md:text-base mt-1">
+              Processed {{ processed_count }} file{{ '' if processed_count == 1 else 's' }} - {{ success_count }} succeeded, {{ failure_count }} failed
+            </p>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <button type="button" @click="expandAll()" class="inline-flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2 rounded-xl transition-all duration-300 shadow-sm">
+            <i class="fas fa-plus-circle"></i>
+            <span>Expand All</span>
+          </button>
+          <button type="button" @click="collapseAll()" class="inline-flex items-center space-x-2 bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-xl transition-all duration-300 shadow-sm">
+            <i class="fas fa-minus-circle"></i>
+            <span>Collapse All</span>
+          </button>
+          <a href="{{ url_for('index') }}" class="inline-flex items-center space-x-2 bg-white text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-xl border border-purple-200 shadow-sm transition-all duration-300">
+            <i class="fas fa-upload"></i>
+            <span>Upload More Videos</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-3">
+        <div class="bg-white rounded-2xl border border-slate-200 px-5 py-4 text-center shadow-sm">
+          <p class="text-xs uppercase tracking-widest text-slate-500 font-semibold">Total Files</p>
+          <p class="text-3xl font-black text-slate-900 mt-2">{{ processed_count }}</p>
+        </div>
+        <div class="bg-green-50 rounded-2xl border border-green-200 px-5 py-4 text-center shadow-sm text-green-700">
+          <p class="text-xs uppercase tracking-widest text-green-600 font-semibold">Successful</p>
+          <p class="text-3xl font-black text-green-700 mt-2">{{ success_count }}</p>
+        </div>
+        <div class="bg-red-50 rounded-2xl border border-red-200 px-5 py-4 text-center shadow-sm text-red-700">
+          <p class="text-xs uppercase tracking-widest text-red-600 font-semibold">Failed</p>
+          <p class="text-3xl font-black text-red-700 mt-2">{{ failure_count }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 space-y-6">
+      <div class="grid gap-6 md:grid-cols-2">
+        <!-- Sentiment Buckets -->
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <p class="text-xs uppercase tracking-widest text-slate-500 font-semibold">Sentiment Buckets</p>
+              <h3 class="text-lg font-semibold text-slate-800">Session Sentiment Overview</h3>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-slate-400">
+              <span class="inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">Positive</span>
+              <span class="inline-flex items-center px-2 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">Negative</span>
+              <span class="inline-flex items-center px-2 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Mixed</span>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-3">
+            {% set sentiment_labels = [
+              ('positive', 'Positive', 'from-green-500 to-emerald-500', 'text-white'),
+              ('negative', 'Negative', 'from-red-500 to-rose-500', 'text-white'),
+              ('mixed', 'Mixed', 'from-amber-300 via-amber-400 to-yellow-400', 'text-slate-900')
+            ] %}
+            {% for bucket, label, gradient, text_color in sentiment_labels %}
+              <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <h4 class="text-sm font-semibold text-slate-600 mb-3">{{ label }}</h4>
+                <div class="space-y-2 max-h-40 overflow-y-auto">
+                  {% for item in sentiment_groups.get(bucket, []) %}
+                    <a href="#result-{{ item.index + 1 }}"
+                       class="block bg-gradient-to-r {{ gradient }} {{ text_color }} rounded-lg px-3 py-2 text-sm font-medium shadow-sm hover:shadow-md transition"
+                       @click.prevent="openResultLink({{ item.index }})">
+                      <div class="flex justify-between items-center">
+                        <span class="truncate mr-3">{{ loop.index }}. {{ item.filename }}</span>
+                        <span class="text-xs font-semibold">{{ '%.1f'|format(item.confidence) }}%</span>
+                      </div>
+                    </a>
+                  {% else %}
+                    <p class="text-xs text-slate-400">No videos detected.</p>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Overall Emotions -->
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <p class="text-xs uppercase tracking-widest text-slate-500 font-semibold">Emotional Mix</p>
+              <h3 class="text-lg font-semibold text-slate-800">Overall Emotion Distribution</h3>
+            </div>
+            <button type="button" class="text-xs text-purple-500 hover:text-purple-600" @click="scrollToPanel('result-1')">Jump to first result</button>
+          </div>
+          <div class="h-64">
+            <canvas id="overallEmotionsChart"></canvas>
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-600">
+            {% set emotion_items = emotion_totals.items()|list %}
+            {% if emotion_items %}
+              {% for label, value in emotion_items|sort(attribute='1', reverse=True) %}
+              <div class="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
+                <span class="font-semibold text-slate-700">{{ label }}</span>
+                <span>{{ '%.1f'|format(value) }}%</span>
+              </div>
+              {% endfor %}
+            {% else %}
+              <p class="text-slate-400 col-span-2">No emotion data available.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Navigation Pills -->
+    <div class="border-t border-purple-100 bg-white/80 px-6 py-4 overflow-x-auto">
+      <div class="flex items-center gap-3 min-w-max">
+        {% for result in results %}
+          {% set status_ok = result.transcript is not none %}
+          <button type="button"
+                  @click="scrollToPanel('result-{{ loop.index }}')"
+                  class="inline-flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 border shadow-sm bg-white text-slate-700"
+                  :class="{ 'bg-green-100 border-green-300 text-green-800': {{ 'true' if status_ok else 'false' }}, 'bg-red-100 border-red-300 text-red-800': {{ 'false' if status_ok else 'true' }} }">
+            <i class="fas {{ 'fa-check-circle' if status_ok else 'fa-times-circle' }}"></i>
+            <span>{{ loop.index }}. {{ result.original_filename or 'Video ' ~ loop.index }}</span>
+          </button>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- Results Panels -->
+  <section class="space-y-6">
+    {% for result in results %}
+      {% set success = result.transcript is not none %}
+      <article id="result-{{ loop.index }}"
+               class="bg-white text-gray-900 rounded-3xl border border-purple-100 shadow-2xl overflow-hidden"
+               x-data="panelState({{ loop.index0 }}, {{ 'true' if loop.first else 'false' }})"
+               x-init="init()"
+               x-on:expand-all-panels.window="openPanel(true)"
+               x-on:collapse-all-panels.window="openPanel(false)">
+
+        <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-6 py-5 border-b border-purple-100 bg-gradient-to-r from-purple-50 via-pink-50 to-indigo-50">
+          <div class="flex items-start md:items-center gap-4">
+            <div class="w-12 h-12 bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 rounded-2xl flex items-center justify-center shadow-lg">
+              <i class="fas fa-file-video text-white text-xl"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-slate-900">{{ result.original_filename or 'Uploaded video ' ~ loop.index }}</h3>
+              <p class="text-slate-600 text-sm">Result {{ loop.index }} of {{ processed_count }}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold border"
+                  :class="open ? 'bg-purple-100 border-purple-200 text-purple-700' : 'bg-slate-100 border-slate-200 text-slate-600'">
+              <i class="fas" :class="open ? 'fa-eye' : 'fa-eye-slash'"></i>
+              <span class="ml-2" x-text="open ? 'Expanded' : 'Collapsed'"></span>
+            </span>
+            {% if success %}
+              <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-100 border border-green-200 text-green-700">
+                <i class="fas fa-check mr-1"></i> Processed
+              </span>
+            {% else %}
+              <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-100 border border-red-200 text-red-700">
+                <i class="fas fa-times mr-1"></i> Failed
+              </span>
+            {% endif %}
+            <button type="button" @click="toggle()" class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white transition-all duration-300 shadow-sm">
+              <i class="fas fa-chevron-down mr-2 transform" :class="open ? 'rotate-180' : 'rotate-0'"></i>
+              <span x-text="open ? 'Collapse' : 'Expand'"></span>
+            </button>
+          </div>
+        </header>
+
+        <div x-show="open" x-transition x-cloak>
+          {% if not success %}
+            <div class="px-6 py-8 bg-slate-50">
+              <div class="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-5 py-4">
+                <p class="font-semibold">{{ result.error or 'We could not process this file. Please verify the format and try again.' }}</p>
+                {% if result.analysis_error %}
+                  <p class="mt-2 text-sm text-red-600">{{ result.analysis_error }}</p>
+                {% endif %}
+              </div>
+            </div>
+          {% else %}
+            <div class="p-6 space-y-8">
+              <!-- Transcript and Actions -->
+              <div class="bg-white rounded-3xl border border-purple-100 shadow-xl overflow-hidden">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-6 py-4 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 rounded-2xl flex items-center justify-center shadow">
+                      <i class="fas fa-file-alt text-white"></i>
+                    </div>
+                    <div>
+                      <h4 class="text-lg font-semibold text-purple-700">Transcribed Text</h4>
+                      <p class="text-xs text-purple-500">Auto-detected language converted to English</p>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap gap-3">
+                    <button type="button"
+                            onclick="copyTranscript('transcript-text-{{ loop.index0 }}', this)"
+                            class="bg-white hover:bg-purple-50 text-purple-600 px-4 py-2 rounded-xl transition-all duration-300 flex items-center gap-2 border border-purple-200 shadow-sm">
+                      <i class="fas fa-copy"></i>
+                      <span class="text-sm font-semibold">Copy</span>
+                    </button>
+                    <button type="button"
+                            onclick="downloadTranscript({{ loop.index0 }})"
+                            class="bg-white hover:bg-purple-50 text-purple-600 px-4 py-2 rounded-xl transition-all duration-300 flex items-center gap-2 border border-purple-200 shadow-sm">
+                      <i class="fas fa-download"></i>
+                      <span class="text-sm font-semibold">Download</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="px-6 py-6">
+                  <!-- IMPORTANT: escape transcript to show safely -->
+                  <div id="transcript-text-{{ loop.index0 }}"
+                       class="text-gray-900 text-base leading-7 whitespace-pre-wrap font-medium max-h-72 overflow-y-auto pr-2 text-left">
+                    {{ result.transcript | default('', true) | e }}
+                  </div>
+                </div>
+
+                <div class="border-t border-slate-100 px-6 py-5 bg-slate-50">
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    <div class="bg-slate-50 rounded-2xl px-4 py-5 border border-slate-200 shadow-sm">
+                      <p class="text-3xl font-black text-purple-600" id="word-count-{{ loop.index0 }}">{{ result.transcript.split()|length }}</p>
+                      <p class="text-xs uppercase tracking-wide text-gray-600 font-semibold">Words</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-2xl px-4 py-5 border border-slate-200 shadow-sm">
+                      <p class="text-3xl font-black text-green-600" id="char-count-{{ loop.index0 }}">{{ result.transcript|length }}</p>
+                      <p class="text-xs uppercase tracking-wide text-gray-600 font-semibold">Characters</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-2xl px-4 py-5 border border-slate-200 shadow-sm">
+                      <p class="text-3xl font-black text-indigo-600"><i class="fas fa-robot"></i></p>
+                      <p class="text-xs uppercase tracking-wide text-gray-600 font-semibold">AI Powered</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sentiment Insights -->
+              <div class="bg-white rounded-3xl border border-purple-100 shadow-xl overflow-hidden">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-6 py-4 border-b border-purple-100 bg-gradient-to-r from-emerald-50 via-blue-50 to-purple-50">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-emerald-400 via-blue-400 to-purple-400 rounded-2xl flex items-center justify-center shadow">
+                      <i class="fas fa-brain text-white"></i>
+                    </div>
+                    <div>
+                      <h4 class="text-lg font-semibold text-emerald-700">Sentiment Insights</h4>
+                      <p class="text-xs text-emerald-500">Powered by Sarvam Chat Completions</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="px-6 py-6 space-y-6">
+                  {% if result.analysis_error %}
+                    <div class="bg-yellow-100 border border-yellow-300 text-yellow-800 rounded-2xl px-4 py-3 text-sm">
+                      {{ result.analysis_error }}
+                    </div>
+                  {% endif %}
+
+                  {% if result.analysis %}
+                    {% set analysis = result.analysis %}
+                    {% if analysis.raw_text %}
+                      <div class="bg-white text-gray-800 rounded-2xl px-5 py-4 text-sm whitespace-pre-wrap border border-slate-200 shadow-sm">
+                        {{ analysis.raw_text }}
+                      </div>
+                    {% else %}
+                      <div class="grid lg:grid-cols-3 gap-6">
+                        <!-- Gauge + Summary -->
+                        <div class="lg:col-span-1 space-y-6">
+                          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <div class="h-40">
+                              <canvas id="sentimentGauge-{{ loop.index0 }}"></canvas>
+                            </div>
+                            <div class="mt-4 text-center">
+                              <p class="text-xs uppercase text-gray-600 tracking-wide">Overall Sentiment</p>
+                              <p class="text-lg font-semibold text-gray-900">{{ analysis.get('overall_sentiment', 'unknown')|title }}</p>
+                              {% if analysis.get('confidence') is not none %}
+                                <p class="text-xs text-gray-500">
+                                  Confidence {{ '%.1f'|format(analysis.get('confidence') * 100 if analysis.get('confidence') <= 1 else analysis.get('confidence')) }}%
+                                </p>
+                              {% endif %}
+                            </div>
+                          </div>
+
+                          {% if analysis.get('summary') %}
+                          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                            <p class="text-xs uppercase text-gray-600 tracking-wide mb-2">Summary</p>
+                            <p class="text-sm text-gray-800 leading-relaxed">{{ analysis.get('summary') }}</p>
+                          </div>
+                          {% endif %}
+                        </div>
+
+                        <!-- Emotions -->
+                        <div class="lg:col-span-1 space-y-6">
+                          {% if analysis.get('emotions') %}
+                          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <div class="h-48">
+                              <canvas id="emotionsChart-{{ loop.index0 }}"></canvas>
+                            </div>
+                          </div>
+                          {% endif %}
+
+                          <div id="emotionBars-{{ loop.index0 }}" class="space-y-3">
+                            {% for emotion in analysis.get('emotions', []) %}
+                            <div>
+                              <div class="flex justify-between text-xs font-semibold text-gray-700 mb-1">
+                                <span>{{ emotion.label }}</span>
+                                <span>{{ '%.1f'|format(emotion.score * 100 if emotion.score <= 1 else emotion.score) }}%</span>
+                              </div>
+                              <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+                                <div class="emotion-progress h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                                     data-width="{{ emotion.score * 100 if emotion.score <= 1 else emotion.score }}"></div>
+                              </div>
+                            </div>
+                            {% endfor %}
+                          </div>
+                        </div>
+
+                        <!-- Reasons / Strengths / Weaknesses / Suggestions -->
+                        <div class="lg:col-span-1 space-y-6">
+                          {% if analysis.get('reasons') %}
+                          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <p class="text-xs uppercase text-gray-600 tracking-wide mb-2">Reasons</p>
+                            <ul class="space-y-2 text-sm text-gray-800">
+                              {% for item in analysis.get('reasons', []) %}
+                              <li class="flex items-start gap-2">
+                                <span class="mt-1 w-2 h-2 rounded-full bg-purple-500"></span>
+                                <span>{{ item }}</span>
+                              </li>
+                              {% endfor %}
+                            </ul>
+                          </div>
+                          {% endif %}
+
+                          {% if analysis.get('strengths') %}
+                          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <p class="text-xs uppercase text-gray-600 tracking-wide mb-2">Strengths</p>
+                            <ul class="space-y-2 text-sm text-gray-800">
+                              {% for item in analysis.get('strengths', []) %}
+                              <li class="flex items-start gap-2">
+                                <span class="mt-1 w-2 h-2 rounded-full bg-green-500"></span>
+                                <span>{{ item }}</span>
+                              </li>
+                              {% endfor %}
+                            </ul>
+                          </div>
+                          {% endif %}
+
+                          {% if analysis.get('weaknesses') %}
+                          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <p class="text-xs uppercase text-gray-600 tracking-wide mb-2">Weaknesses</p>
+                            <ul class="space-y-2 text-sm text-gray-800">
+                              {% for item in analysis.get('weaknesses', []) %}
+                              <li class="flex items-start gap-2">
+                                <span class="mt-1 w-2 h-2 rounded-full bg-red-500"></span>
+                                <span>{{ item }}</span>
+                              </li>
+                              {% endfor %}
+                            </ul>
+                          </div>
+                          {% endif %}
+
+                          {% if analysis.get('suggestions') %}
+                          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <p class="text-xs uppercase text-gray-600 tracking-wide mb-2">Suggestions</p>
+                            <ul class="space-y-2 text-sm text-gray-800">
+                              {% for item in analysis.get('suggestions', []) %}
+                              <li class="flex items-start gap-2">
+                                <span class="mt-1 w-2 h-2 rounded-full bg-blue-500"></span>
+                                <span>{{ item }}</span>
+                              </li>
+                              {% endfor %}
+                            </ul>
+                          </div>
+                          {% endif %}
+                        </div>
+                      </div>
+
+                      <div class="bg-slate-50 rounded-2xl p-5 border border-slate-200 shadow-sm">
+                        <p class="text-xs uppercase text-gray-600 tracking-wide mb-3">Word Highlights</p>
+                        <div id="wordCloud-{{ loop.index0 }}" class="flex flex-wrap gap-2"></div>
+                      </div>
+                    {% endif %}
+                  {% else %}
+                    <p class="text-sm text-slate-600">No sentiment insights were returned for this transcript.</p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </article>
+    {% endfor %}
+  </section>
+</div>
+
+<!-- data payloads for JS -->
+<script id="overall-emotions-data" type="application/json">{{ emotion_totals | tojson }}</script>
+<script id="results-data" type="application/json">{{ results | tojson }}</script>
+
+<script>
+/* ---------- Page state ---------- */
+window.resultsData = [];
+window.overallEmotionsData = {};
+window._overallEmotionsChart = null;
+window._resultVisualizationState = {};
+
+function resultsPage() {
+  return {
+    init() {
+      const payload = document.getElementById('results-data');
+      window.resultsData = [];
+      if (payload) {
+        try { window.resultsData = JSON.parse(payload.textContent || '[]'); }
+        catch (e) { console.error('Unable to parse results payload:', e); }
+      }
+
+      const overallPayload = document.getElementById('overall-emotions-data');
+      window.overallEmotionsData = {};
+      if (overallPayload) {
+        try { window.overallEmotionsData = JSON.parse(overallPayload.textContent || '{}'); }
+        catch (e) { console.error('Unable to parse overall emotions payload:', e); }
+      }
+
+      setTimeout(() => createOverallEmotionsChart(window.overallEmotionsData), 0);
+    },
+    expandAll(){ window.dispatchEvent(new CustomEvent('expand-all-panels')); },
+    collapseAll(){ window.dispatchEvent(new CustomEvent('collapse-all-panels')); },
+    scrollToPanel(id){
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (el.__x && el.__x.$data && typeof el.__x.$data.openPanel === 'function') el.__x.$data.openPanel(true);
+    },
+    openResultLink(index){
+      const targetId = `result-${index + 1}`;
+      this.scrollToPanel(targetId);
+      openResultInNewTab(index);
+    }
+  };
+}
+
+function panelState(index, defaultOpen){
+  return {
+    index, open: defaultOpen, initialized: false,
+    toggle(){ this.open = !this.open; if (this.open) this.initVisuals(); },
+    openPanel(force){ this.open = force; if (force) this.initVisuals(); },
+    initVisuals(){
+      if (this.initialized) return;
+      initializeVisualizations(this.index);
+      this.initialized = true;
+    },
+    init(){ if (this.open) this.initVisuals(); }
+  };
+}
+
+window.addEventListener('expand-all-panels', () => {
+  document.querySelectorAll('[x-data^="panelState"]').forEach((el) => { if (el.__x) el.__x.$data.openPanel(true); });
+});
+window.addEventListener('collapse-all-panels', () => {
+  document.querySelectorAll('[x-data^="panelState"]').forEach((el) => { if (el.__x) el.__x.$data.openPanel(false); });
+});
+
+/* ---------- Visualizations ---------- */
+function initializeVisualizations(index){
+  if (!Array.isArray(window.resultsData) || !window.resultsData[index]) return;
+  if (window._resultVisualizationState[index]) return;
+  const result = window.resultsData[index];
+  if (!result.transcript) return;
+
+  if (result.analysis){
+    createSentimentGauge(`sentimentGauge-${index}`, result.analysis);
+    if (Array.isArray(result.analysis.emotions) && result.analysis.emotions.length){
+      createEmotionsChart(`emotionsChart-${index}`, result.analysis.emotions);
+      animateEmotionBars(index);
+    }
+  }
+  createWordCloud(`wordCloud-${index}`, result.transcript);
+  window._resultVisualizationState[index] = true;
+}
+
+/* ---------- Transcript actions ---------- */
+function copyTranscript(elementId, button){
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const text = el.textContent || '';
+  navigator.clipboard.writeText(text).then(() => {
+    if (!button) return;
+    const original = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check"></i><span>Copied!</span>';
+    button.classList.add('bg-green-500/40');
+    setTimeout(() => { button.innerHTML = original; button.classList.remove('bg-green-500/40'); }, 1800);
+  }).catch(err => console.error('Clipboard failed:', err));
+}
+
+function downloadTranscript(index){
+  const result = window.resultsData[index];
+  if (!result || !result.transcript) return;
+  const nameHint = (result.original_filename || 'transcript').split('.')[0];
+  const blob = new Blob([result.transcript], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `transcript_${nameHint}.txt`;
+  document.body.appendChild(a); a.click();
+  URL.revokeObjectURL(url); document.body.removeChild(a);
+}
+
+/* ---------- Charts ---------- */
+function createSentimentGauge(canvasId, analysis){
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !analysis || typeof Chart === 'undefined') return;
+  const ctx = canvas.getContext('2d');
+  const raw = typeof analysis.confidence === 'number' ? analysis.confidence : 0;
+  const confidence = raw <= 1 ? raw * 100 : raw;
+  const sentiment = (analysis.overall_sentiment || '').toString().trim().toLowerCase();
+  const gaugeColor = sentiment === 'negative' ? '#f87171' : '#34d399';
+
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: ['Confidence','Remaining'], datasets:[{ data:[confidence, Math.max(0,100-confidence)], backgroundColor:[gaugeColor, '#e5e7eb'], borderWidth:0 }] },
+    options: { cutout:'70%', responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{enabled:false} } },
+    plugins: [{
+      id: 'confidenceLabel',
+      afterDraw(chart){
+        const {ctx} = chart, {top,bottom,left,right} = chart.chartArea, x=(left+right)/2, y=(top+bottom)/2;
+        ctx.save();
+        ctx.fillStyle = '#1f2937'; ctx.font = 'bold 20px "Inter", sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(`${confidence.toFixed(1)}%`, x, y - 10);
+        ctx.fillStyle = '#6b7280'; ctx.font = '12px "Inter", sans-serif'; ctx.fillText('Confidence', x, y + 12);
+        ctx.restore();
+      }
+    }]
+  });
+}
+
+function createEmotionsChart(canvasId, emotions){
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !Array.isArray(emotions) || !emotions.length || typeof Chart === 'undefined') return;
+  const ctx = canvas.getContext('2d');
+  const labels = emotions.map(e => e.label);
+  const data = emotions.map(e => (typeof e.score === 'number' ? (e.score <= 1 ? e.score*100 : e.score) : 0));
+  const colors = ['#8b5cf6','#ec4899','#06b6d4','#10b981','#f59e0b','#ef4444','#84cc16','#f97316','#6366f1','#14b8a6'];
+
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets:[{ data, backgroundColor: colors.slice(0, data.length), borderColor: '#ffffff', borderWidth: 2 }] },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:'#1f2937', font:{ size:11, weight:'bold' }, usePointStyle:true, padding:14 } },
+        tooltip:{ backgroundColor:'#1f2937', borderColor:'#374151', borderWidth:1, titleColor:'#fff', bodyColor:'#fff',
+          callbacks:{ label:(ctx)=>`${ctx.label}: ${ctx.parsed.toFixed(1)}%` } }
+      }
+    }
+  });
+}
+
+function animateEmotionBars(index){
+  const container = document.getElementById(`emotionBars-${index}`);
+  if (!container) return;
+  container.querySelectorAll('.emotion-progress').forEach((bar, i) => {
+    setTimeout(() => {
+      const width = parseFloat(bar.getAttribute('data-width')) || 0;
+      bar.style.width = `${Math.min(100, width)}%`;
+    }, i*180 + 400);
+  });
+}
+
+function createWordCloud(containerId, transcript){
+  const container = document.getElementById(containerId);
+  if (!container || !transcript) return;
+  const words = transcript.toLowerCase().replace(/[^\w\s]/g,' ').split(/\s+/).filter(w => w.length > 3)
+    .reduce((acc,w)=>{ acc[w]=(acc[w]||0)+1; return acc; },{});
+  const entries = Object.entries(words).sort(([,a],[,b])=>b-a).slice(0,30);
+  container.innerHTML = '';
+  entries.forEach(([word,count],i)=>{
+    const span = document.createElement('span');
+    span.textContent = word;
+    span.className = 'inline-block px-3 py-1 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 text-gray-900 border border-purple-200 hover:shadow-md transition-all duration-300';
+    const size = Math.max(12, 22 - i*0.4);
+    span.style.fontSize = `${size}px`;
+    span.style.opacity = Math.max(0.4, 1 - i*0.04);
+    container.appendChild(span);
+  });
+}
+
+function createOverallEmotionsChart(data){
+  const canvas = document.getElementById('overallEmotionsChart');
+  if (!canvas || !data || typeof Chart === 'undefined') return;
+  const entries = Object.entries(data || {});
+  if (!entries.length) return;
+  const sorted = entries.sort((a,b)=>(b[1]||0)-(a[1]||0));
+  const labels = sorted.map(([l])=>l);
+  const values = sorted.map(([,v])=>v);
+  const colors = ['#8b5cf6','#ec4899','#06b6d4','#10b981','#f59e0b','#ef4444','#84cc16','#f97316','#6366f1','#14b8a6'];
+  const ctx = canvas.getContext('2d');
+
+  if (window._overallEmotionsChart) window._overallEmotionsChart.destroy();
+
+  window._overallEmotionsChart = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data: values, backgroundColor: colors.slice(0, values.length), borderColor:'#fff', borderWidth:2 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:'#1f2937', font:{ size:11, weight:'bold' }, usePointStyle:true, padding:14 } },
+        tooltip:{ backgroundColor:'#1f2937', borderColor:'#374151', borderWidth:1, titleColor:'#fff', bodyColor:'#fff',
+          callbacks:{ label:(ctx)=>`${ctx.label}: ${ctx.parsed.toFixed(1)}%` } }
+      }
+    }
+  });
+}
+
+/* ---------- Open result in new tab ---------- */
+function escapeHtml(value){
+  return String(value||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function openResultInNewTab(index){
+  const result = Array.isArray(window.resultsData) ? window.resultsData[index] : null;
+  if (!result) return false;
+  const win = window.open('', '_blank'); if (!win) return false;
+  const a = result.analysis || {};
+  const title = result.original_filename || result.stored_filename || `Video ${index+1}`;
+  const transcript = result.transcript || 'No transcript available.';
+  let confidence = a.confidence; if (typeof confidence==='number' && confidence<=1) confidence*=100;
+  const emotions = Array.isArray(a.emotions) ? a.emotions : [];
+  const list = (arr, cls) => (Array.isArray(arr) && arr.length)
+      ? '<ul class="space-y-1 text-sm text-slate-700">' + arr.map(x=>`<li class="flex items-start gap-2"><span class="mt-1 w-2 h-2 rounded-full ${cls}"></span><span>${escapeHtml(x)}</span></li>`).join('') + '</ul>'
+      : '<p class="text-sm text-slate-500">None provided.</p>';
+  const emotionRows = emotions.length
+      ? emotions.map(e => `<div class="flex items-center justify-between"><span>${escapeHtml(e.label||'')}</span><span>${((e.score||0)<=1?(e.score*100):e.score).toFixed(1)}%</span></div>`).join('')
+      : '<p class="text-sm text-slate-500">No emotion data.</p>';
+  const summary = a.summary ? escapeHtml(a.summary) : 'No summary available.';
+  const overall = escapeHtml((a.overall_sentiment||'unknown').toString());
+  const confText = typeof confidence==='number' ? `${confidence.toFixed(1)}%` : 'N/A';
+
+  win.document.open();
+  win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapeHtml(title)}</title><link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"></head><body class="bg-slate-100 min-h-screen"><div class="max-w-3xl mx-auto py-10 px-6 space-y-6"><div class="bg-white rounded-3xl shadow-xl border border-purple-100 p-6 space-y-4"><div class="flex items-center justify-between"><h1 class="text-2xl font-bold text-slate-900 truncate">${escapeHtml(title)}</h1><span class="inline-flex items-center px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Video ${index+1}</span></div><div class="grid md:grid-cols-2 gap-4 text-sm"><div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><p class="text-xs uppercase text-slate-500 font-semibold">Overall Sentiment</p><p class="text-lg font-semibold text-slate-800 mt-1 capitalize">${overall}</p></div><div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><p class="text-xs uppercase text-slate-500 font-semibold">Confidence</p><p class="text-lg font-semibold text-slate-800 mt-1">${confText}</p></div></div><div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><p class="text-xs uppercase text-slate-500 font-semibold mb-2">Transcript</p><div class="text-slate-800 text-sm leading-6 whitespace-pre-wrap max-h-60 overflow-y-auto">${escapeHtml(transcript)}</div></div><div class="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-4"><div><p class="text-xs uppercase text-slate-500 font-semibold mb-2">Summary</p><p class="text-sm text-slate-700 leading-6">${summary}</p></div><div><p class="text-xs uppercase text-slate-500 font-semibold mb-2">Emotions</p><div class="space-y-1 text-sm text-slate-700">${emotionRows}</div></div><div class="grid md:grid-cols-2 gap-4"><div><p class="text-xs uppercase text-slate-500 font-semibold mb-2">Reasons</p>${list(a.reasons,'bg-purple-500')}</div><div><p class="text-xs uppercase text-slate-500 font-semibold mb-2">Strengths</p>${list(a.strengths,'bg-green-500')}</div><div><p class="text-xs uppercase text-slate-500 font-semibold mb-2">Weaknesses</p>${list(a.weaknesses,'bg-red-500')}</div><div><p class="text-xs uppercase text-slate-500 font-semibold mb-2">Suggestions</p>${list(a.suggestions,'bg-blue-500')}</div></div></div></div></div></body></html>`);
+  win.document.close();
+  return false;
+}
+window.openResultInNewTab = openResultInNewTab;
+</script>
+{% endblock %}
